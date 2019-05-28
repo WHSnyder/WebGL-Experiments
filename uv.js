@@ -10,6 +10,7 @@ uniform float timevar;
 uniform mat4 frust;
 
 
+
 varying vec3 fragcolor;
 
 
@@ -83,8 +84,68 @@ mat4.perspective(frust, Math.PI/2, 4/3, .1, 4);
 
 
 var viewmatrix =  mat4.create();
+var viewmat, frustmat, rotmat;
+var timemem;
 
 
+var cont = 1;
+var dir = 0;
+
+var currTime;
+
+
+function render(){
+
+	var timePassed;
+
+	if (cont == 0){
+		return;
+	}
+
+	timePassed = performance.now() - currTime;
+	//currTime = performance.now();
+
+	quat.fromEuler(rotationQuat, 0, timePassed/10000 * Math.PI/4 * dir, 0);
+
+	mat4.fromRotationTranslationScaleOrigin(rotmat, rotationQuat, dummyTransl, scale, toOrg);
+	vec3.transformMat4(eyeCoord, eyeCoord, rotmat);
+
+	mat4.lookAt(viewmatrix, eyeCoord, focusPt, upDir);
+
+	gl.uniformMatrix4fv(viewmat,false, viewmatrix);
+	gl.uniform1f(timeMem, (timePassed/1000) % 5000);
+
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+	gl.drawArrays(gl.TRIANGLES, 0, 9);
+
+	window.requestAnimationFrame(render);
+}
+
+
+
+
+document.onkeydown = function(ev){ trigger(ev); };
+	
+	function trigger(ev) {
+
+		if (ev.keyCode == 39){
+			dir += 1;
+		}
+		else if (ev.keyCode == 37){
+			dir -= 1;
+		}
+		else if (ev.keyCode == 81){//q
+			cont = 0;
+		}
+		else if (ev.keyCode == 87){//w
+
+			cont = 1;
+			currTime = performance.now();
+			window.requestAnimationFrame(render);
+		}
+		else {return;}
+	};
 
 
 var demoinit = function () {
@@ -146,81 +207,29 @@ var demoinit = function () {
 	gl.enableVertexAttribArray(colorMem);
 
 
-	var viewmat = gl.getUniformLocation(prog, 'viewmat');
-	var frustmat = gl.getUniformLocation(prog, 'frust');
+	viewmat = gl.getUniformLocation(prog, 'viewmat');
+	frustmat = gl.getUniformLocation(prog, 'frust');
 
 
-
-	
 	mat4.lookAt(viewmatrix, eyeCoord, focusPt, upDir);
 
 	gl.uniformMatrix4fv(viewmat,false, viewmatrix);
 	gl.uniformMatrix4fv(frustmat, false, frust);
 
 
-	var rotmat = mat4.create();
-	mat4.fromRotationTranslationScaleOrigin(rotmat, rotationQuat, dummyTransl, scale, toOrg);
-
-	//mat4.fromRotation(rotateviewmat,Math.PI/4,upDir);
+	rotmat = mat4.create();
 
 
+	timeMem = gl.getUniformLocation(prog, 'timevar');
 
-
-
-
-
-
-	console.log(rotmat);
-
-	console.log(eyeCoord);
-
-	recv = vec3.transformMat4(recv, eyeCoord, rotmat);
-
-	console.log(recv);
-
-
-	var timeMem = gl.getUniformLocation(prog, 'timevar');
-
-	var time;
-
-	document.onkeydown = function(ev){ render(ev); };
-	
-	function render(ev) {
-
-		if (ev.keyCode == 39){
-			console.log("angle: " + angle);
-			angle += 5;
-
-		}
-		else if (ev.keyCode == 37){
-			console.log("angle: " + angle);
-			angle -= 5;
-		}
-		else {return;}
-
-		if (gl === null){
-			console.error("wrong!");
-		}
-
-		time = performance.now();
-
-		quat.fromEuler(rotationQuat, 0, angle, 0);
-
-		mat4.fromRotationTranslationScaleOrigin(rotmat, rotationQuat, dummyTransl, scale, toOrg);
-		vec3.transformMat4(recv, eyeCoord, rotmat);
-
-		console.log("looking at " + focusPt + " from " + recv);
-
-
-		mat4.lookAt(viewmatrix, recv, focusPt, upDir);
-
-
-		gl.uniformMatrix4fv(viewmat,false, viewmatrix);
-
-		gl.uniform1f(timeMem, time);
-
-		gl.clear(gl.COLOR_BUFFER_BIT);
-		gl.clear(gl.DEPTH_BUFFER_BIT);
-		gl.drawArrays(gl.TRIANGLES, 0, 9);
-	};
+	console.log("demoinit done");
 };
+
+
+
+
+
+
+
+
+
