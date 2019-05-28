@@ -9,10 +9,7 @@ uniform mat4 viewmat;
 uniform float timevar;
 uniform mat4 frust;
 
-
-
 varying vec3 fragcolor;
-
 
 void main(){
 
@@ -210,15 +207,9 @@ var demoinit = function () {
 	viewmat = gl.getUniformLocation(prog, 'viewmat');
 	frustmat = gl.getUniformLocation(prog, 'frust');
 
-
-	mat4.lookAt(viewmatrix, eyeCoord, focusPt, upDir);
-
-	gl.uniformMatrix4fv(viewmat,false, viewmatrix);
 	gl.uniformMatrix4fv(frustmat, false, frust);
 
-
 	rotmat = mat4.create();
-
 
 	timeMem = gl.getUniformLocation(prog, 'timevar');
 
