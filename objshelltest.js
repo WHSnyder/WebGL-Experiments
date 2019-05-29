@@ -1,43 +1,20 @@
-//var objviewer = require("objviewer.js");
-
-
 var vert_shader = `
 
 precision mediump float;
 
 attribute vec3 vertpos;
-attribute vec3 vertcolor;
-attribute vec2 texCoord;
+uniform vec3 vertcolor;
 
 uniform mat4 viewmat;
-uniform float timevar;
-uniform mat4 frust;
+uniform mat4 frustmat;
 
-
-/*struct Data {
-  vec2 tex;
-  vec3 color;
-};
-
-varying Data out;*/
-
-varying vec2 tex;
 varying vec3 color;
-
 
 void main(){
 
-    //gl_Position = vec4(vertpos.x, sin(timevar+vertpos.x)*vertpos.y, 1.0, 1.0 + abs(cos(timevar)));
-    //fragcolor = vec3(abs(sin(timevar + vertcolor.x)), abs(sin(timevar + .5 + vertpos.y)), abs(sin(timevar + 1.0)));
-
-    //fragcolor = vertcolor;
-    //gl_Position = vec4(vertpos, 1.0);
-
-    //fragcolor = vec3(abs(sin(timevar + vertcolor.x)), abs(sin(timevar + .5 + vertpos.y)), abs(sin(timevar + 1.0)));
-    gl_Position = frust * viewmat * vec4(vertpos, 1.0);
-
-    tex = texCoord;
     color = vertcolor;
+    gl_Position = frustmat * viewmat * vec4(vertpos, 1.0);
+    gl_PointSize = 10.0;
 }`;
 
 
@@ -45,23 +22,17 @@ void main(){
 var frag_shader = `
 
 precision mediump float;
-uniform sampler2D sampler;
 
-//varying Data out;
-
-varying vec2 tex;
 varying vec3 color;
 
 void main(){
-    gl_FragColor = vec4(color, 1.0) * texture2D(sampler, tex);
+
+    gl_FragColor = vec4(color, 1.0);
 }`;
 
 
-/*
 
-
-
-class Vert {
+/*class Vert {
 
     coords;
     color;
@@ -142,12 +113,11 @@ class Obj {
 */
 
 
-
-
-
 var mat4 = glMatrix.mat4;
 var vec3 = glMatrix.vec3;
 var quat = glMatrix.quat;
+
+var gl, prog;
 
 function initGL(gl, canvas){
     if (!gl){
@@ -158,6 +128,7 @@ function initGL(gl, canvas){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     return 0;
 }
+
 
 function initShader(gl, shaderVar, shaderText){
 
@@ -171,8 +142,9 @@ function initShader(gl, shaderVar, shaderText){
     return 0;
 }
 
-var eyeCoord = vec3.fromValues(0,3,0);
-var focusPt = vec3.fromValues(0,0,-3);
+
+var eyeCoord = vec3.fromValues(0,0,4);
+var focusPt = vec3.fromValues(0,0,-2);
 var upDir = vec3.fromValues(0,1,0);
 var recv = vec3.create();
 var rotationQuat = quat.create(); 
@@ -182,13 +154,12 @@ var toOrg = vec3.create();
 vec3.sub(toOrg, focusPt, vec3.create());
 var scale = vec3.fromValues(1,1,1);
 var dummyTransl = vec3.create();
-var gl;
 var angle = 0;
 var frust = mat4.create();
-mat4.perspective(frust, Math.PI/2, 4/3, .5, 10);
+mat4.perspective(frust, Math.PI/2, 4/3, .1, 10);
 
 var viewmatrix =  mat4.create();
-var viewmat, frustmat, rotmat;
+var viewmat, frustmat, rotmat = mat4.create();
 var timemem, time;
 var samplermem;
 
@@ -197,18 +168,17 @@ var dir = 0;
 
 var n = 0;
 
-var currTime;
-/*
+var currTime, timePassed;
+
+
 function render(){
 
-    var timePassed;
 
     if (cont == 0){
         return;
     }
 
     timePassed = performance.now() - currTime;
-    //currTime = performance.now();
 
     quat.fromEuler(rotationQuat, 0, timePassed/10000 * Math.PI/4 * dir, 0);
 
@@ -218,18 +188,17 @@ function render(){
     mat4.lookAt(viewmatrix, eyeCoord, focusPt, upDir);
 
     gl.uniformMatrix4fv(viewmat,false, viewmatrix);
-    gl.uniform1f(timeMem, (timePassed/1000) % 5000);
+    //gl.uniform1f(timeMem, (timePassed/1000) % 5000);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    //gl.drawArrays(gl.TRIANGLES, 0, 9);
-    gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+    gl.drawElements(gl.LINE_LOOP, n, gl.UNSIGNED_SHORT, 0);
 
     window.requestAnimationFrame(render);
 }
 
 
-*/
+
 
 document.onkeydown = function(ev){ trigger(ev); };
     
@@ -249,9 +218,7 @@ function trigger(ev) {
         currTime = performance.now();
         window.requestAnimationFrame(render);
     }
-    else if (ev.keyCode == 13){
-        shelldemo();
-    }
+
     else {return;}
 };
 
@@ -335,10 +302,9 @@ var initShellDemo = function(){
 
     gl.enable(gl.DEPTH_TEST);
 
-
-    console.log("about to read");
-
     readOBJFile("./models/shell.obj", gl, 1.0, 0);
+
+    console.log("initialized");
 };
 
 
@@ -348,51 +314,46 @@ var initShellDemo = function(){
 
 function proceedToDraw() {
 
+    gobData = gob.getDrawingInfo();
     
     var vertBuf = gl.createBuffer();
-    var indBuf = gl.createBuffer();
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, gobData.vertices, gl.STATIC_DRAW);
 
-    var elSize = Float32Array.BYTES_PER_ELEMENT;
+    console.log("vert buffer: " +  gob.vertices.map(v => "[" + v.x + ","+ v.y+ "," + v.z + "]"));
 
+    var elSize = gobData.vertices.BYTES_PER_ELEMENT;
 
+    posMem = gl.getAttribLocation(prog, "vertpos");
 
-    var posMem = gl.getAttribLocation(prog, 'vertpos');
-    var colorMem = gl.getAttribLocation(prog, 'vertcolor');
-    var texMem = gl.getAttribLocation(prog, 'texCoord');
-
-    samplermem = gl.getUniformLocation(prog, 'sampler');
-
-    gl.vertexAttribPointer(posMem, 3, gl.FLOAT, gl.FALSE, elSize * 8, 0);
-    gl.vertexAttribPointer(colorMem, 3, gl.FLOAT, gl.FALSE, elSize * 8, 3 * elSize);
-    gl.vertexAttribPointer(texMem, 2, gl.FLOAT, gl.FALSE, elSize * 8, 6 * elSize);
-
+    gl.vertexAttribPointer(posMem, 3, gl.FLOAT, gl.FALSE, elSize * 3, 0);
     gl.enableVertexAttribArray(posMem);
-    gl.enableVertexAttribArray(colorMem);
 
-    initTexture(gl);
+    colorMem = gl.getUniformLocation(prog, "vertcolor");
+    gl.uniform3f(colorMem, 1.0, 0.0, 1.0);
 
-    gl.enableVertexAttribArray(texMem);
+    var indBuf = gl.createBuffer();
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indBuf);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gobData.indices, gl.STATIC_DRAW);
 
-    n = indices.length;
+    console.log("index buffer: " + gob.indices);
+
+    n = gobData.indices.length;
+
+    mat4.lookAt(viewmatrix, eyeCoord, focusPt, upDir);
 
     viewmat = gl.getUniformLocation(prog, 'viewmat');
-    frustmat = gl.getUniformLocation(prog, 'frust');
-    
+    gl.uniformMatrix4fv(viewmat,false, viewmatrix);
 
+    frustmat = gl.getUniformLocation(prog, 'frustmat');
     gl.uniformMatrix4fv(frustmat, false, frust);
 
-    rotmat = mat4.create();
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    gl.drawElements(gl.LINE_LOOP, n, gl.UNSIGNED_SHORT ,0);
 
-    mat4.fromRotationTranslationScaleOrigin(rotmat, rotationQuat, dummyTransl, scale, toOrg);
-
-    recv = vec3.transformMat4(recv, eyeCoord, rotmat);
-
-    timeMem = gl.getUniformLocation(prog, 'timevar');
+    console.log("drew");
+    
 };

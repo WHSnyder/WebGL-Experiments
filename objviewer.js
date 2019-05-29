@@ -1,19 +1,9 @@
 //credits to:
 // OBJViewer.js (c) 2012 matsuda and itami
 
-class MyObject {
-  //norms, verts;
 
-  constructor(ns,vs){
-    this.norms = ns;
-    this.verts = vs;
-  }
-}
-
-var gate = 0;
-
-var g_objDoc = null;      // The information of OBJ file
-var g_drawingInfo = null; // The information for drawing 3D model
+var gob = null;      // The information of OBJ file
+var gobData = null; // The information for drawing 3D model
 
 // Read a file
 
@@ -26,11 +16,11 @@ function onReadOBJFile(fileString, fileName, gl, scale, reverse) {
   var result = objDoc.parse(fileString, scale, reverse); // Parse the file
 
   if (!result) {
-    g_objDoc = null; g_drawingInfo = null;
+    gob = null; gobData= null;
     console.log("OBJ file parsing error.");
     return null;
   }
-  g_objDoc = objDoc;
+  gob = objDoc;
 
   return null;
 }
