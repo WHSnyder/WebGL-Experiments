@@ -1,3 +1,6 @@
+//var objviewer = require("objviewer.js");
+
+
 var vert_shader = `
 
 precision mediump float;
@@ -54,16 +57,15 @@ void main(){
 }`;
 
 
-
-
-
 /*
+
+
+
 class Vert {
 
     coords;
     color;
     uv;
-    normal;
 
     constructor(xp, yp, zp, rp, gp, bp, sp, tp){
 
@@ -137,8 +139,8 @@ class Obj {
     }
 }
 
-
 */
+
 
 
 
@@ -196,7 +198,7 @@ var dir = 0;
 var n = 0;
 
 var currTime;
-
+/*
 function render(){
 
     var timePassed;
@@ -227,7 +229,7 @@ function render(){
 }
 
 
-
+*/
 
 document.onkeydown = function(ev){ trigger(ev); };
     
@@ -243,18 +245,32 @@ function trigger(ev) {
         cont = 0;
     }
     else if (ev.keyCode == 87){//w
-
         cont = 1;
         currTime = performance.now();
         window.requestAnimationFrame(render);
     }
+    else if (ev.keyCode == 13){
+        shelldemo();
+    }
     else {return;}
 };
 
+function readOBJFile(fileName, gl, scale, reverse) {
+  
+  var request = new XMLHttpRequest();
+
+  request.onreadystatechange = function() {
+    if (request.readyState === 4 && request.status !== 404) {
+      onReadOBJFile(request.responseText, fileName, gl, scale, reverse);
+      proceedToDraw();
+    }
+  }
+  request.open('GET', fileName, true); // Create a request to acquire the file
+  request.send();                      // Send the request
+}
 
 
-
-function loadTexture(gl, img){
+/*function loadTexture(gl, img){
 
     console.log("up here width is: " + img.width);
 
@@ -290,14 +306,12 @@ function initTexture(gl){
 
     img.crossOrigin = "anonymous"; 
     img.src = "./images/foam.jpg";
-}
+}*/
 
 
 
 
-
-
-var cubedemo = function () {
+var initShellDemo = function(){
 
     var canvas = document.getElementById("view");    
 
@@ -322,22 +336,19 @@ var cubedemo = function () {
     gl.enable(gl.DEPTH_TEST);
 
 
-    var verts = new Float32Array([
-    // Vertex coordinates and color
-        -1.0,  0.0,  -5.0,     1.0,  1.0,  1.0,  0.0,0.0,// v0 White
-        1.0,  0.0,  -5.0,     1.0,  0.0,  1.0,  1.0,0.0,// v1 Magenta
-        0.0,   3.0,  -3.0,    1.0,  0.0,  0.0,  0.0,0.0,// v2 Red
-        -1.0, 0.0,  -1.0,     1.0,  1.0,  0.0,  0.0,1.0,// v3 Yellow
-        1.0,  0.0, -1.0,     0.0,  1.0,  0.0,  1.0,1.0// v4 Green
-    ]);
+    console.log("about to read");
 
-    // Indices of the vertices
-    var indices = new Uint8Array([
-        0, 1, 3,   1, 3, 4,    // front
-        0, 3, 2,   0, 1, 2,    // right
-        3, 4, 2,   1, 4, 2,    // up
-    ]);
+    readOBJFile("./models/shell.obj", gl, 1.0, 0);
+};
 
+
+
+
+
+
+function proceedToDraw() {
+
+    
     var vertBuf = gl.createBuffer();
     var indBuf = gl.createBuffer();
 
@@ -345,6 +356,8 @@ var cubedemo = function () {
     gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
 
     var elSize = Float32Array.BYTES_PER_ELEMENT;
+
+
 
     var posMem = gl.getAttribLocation(prog, 'vertpos');
     var colorMem = gl.getAttribLocation(prog, 'vertcolor');

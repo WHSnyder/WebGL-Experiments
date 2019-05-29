@@ -1,3 +1,5 @@
 /examples/*
 *DS_*
 /glMatrix/*
+/images/*
+/models/*
