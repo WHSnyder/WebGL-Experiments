@@ -44,6 +44,8 @@ void main(){
 
 class Player {
 
+	//var eyePt = 1;
+
 	constructor(){
 
 		this.eyePt = vec3.fromValues(0.0,1.0,0.0);
@@ -57,24 +59,21 @@ class Player {
 		this.tran = mat4.create();
 	}
 
-
-
 	rotate(axis, deg){
 
-		mat4.fromRotation(rot, deg ,axis);
+		mat4.fromRotation(this.rot, deg, axis);
 
-		//vec3.transformMat4(eyeCoord, ); eye coord wouldnt change right?
-		vec3.transformMat4(upVec, upVec, rot);
-		vec3.transformMat4(focusVec, focusVec, rot); //probably wrong...
+		vec3.transformMat4(this.upVec, this.upVec, this.rot);
+		vec3.transformMat4(this.focusVec, this.focusVec, this.rot); //probably wrong...
 	}
-
 
 	move(x,y,z){
 
-		//mat4.fromTranslation(tran, direction);
-		vec3.add(this.eyePt, this.eyePt, vec3.fromValues(x,y,z));
-	}
 
+		console.log("b4: " + this.eyePt);
+		vec3.add(this.eyePt, this.eyePt, vec3.fromValues(x,y,z));
+		console.log("af: " + this.eyePt);
+	}
 
 	getView(){
 
@@ -85,8 +84,6 @@ class Player {
 		return this.lookMat;
 	}
 }
-
-
 
 
 
@@ -122,10 +119,7 @@ var recv = vec3.create();
 var rotationQuat = quat.create(); 
 quat.fromEuler(rotationQuat, 0,0,0);
 
-
 var player = new Player();
-
-
 
 var toOrg = vec3.create();
 vec3.sub(toOrg, focusPt, vec3.create());
@@ -148,6 +142,9 @@ var n = 0;
 var currTime, timePassed;
 
 
+
+
+
 function render(viewmatrix){
 
     gl.uniformMatrix4fv(viewmat,false, viewmatrix);
@@ -164,28 +161,74 @@ function render(viewmatrix){
 
 
 
-document.onkeydown = function(ev){ trigger(ev); };
-    
-function trigger(ev) {
+var mouseInitialized = false;
+var mouseX, mouseY;
+var deltamX = 0, delatmY = 0;
+var mouseRead = false;
 
-	console.log("keypressed");
 
-    if (ev.keyCode == 39){
-        dir += 1;
-    }
-    else if (ev.keyCode == 37){
-        dir -= 1;
-    }
-    else if (ev.keyCode == 81){//q
-        cont = 0;
-    }
-    else if (ev.keyCode == 87){//w
-        cont = 1;
-        updateWorld();
-    }
+function mouseHandler(e){
 
-    else {return;}
-};
+	mouseRead = false;
+
+	if (!mouseInitialized){
+		deltamX = 0;
+		deltamY = 0;
+		mouseInitialized = true;
+	}
+	else {
+		deltamX = e.pageX - mouseX;
+		deltamY = e.pageY - mouseY;
+	}
+
+	mouseX = e.pageX;
+	mouseY = e.pageY;
+}
+
+
+
+
+
+var keyMap = new Map();
+
+keyMap.set(87, false);//forward
+keyMap.set(65, false);//left
+keyMap.set(68, false);//right
+keyMap.set(83, false);//backward
+keyMap.set(71, false);//go
+keyMap.set(84, false);//terminate
+
+function keydown(event) {
+	
+	if (event.keyCode == 71 && !keyMap.get(71)){
+		cont = 1;
+		console.log("pressed g...");
+		window.requestAnimationFrame(updateWorld);
+	}
+	else if (event.keyCode == 84){
+		cont = 0;
+		keyMap.set(71, false);
+	}
+	keyMap.set(event.keyCode, true);
+}
+
+
+function keyup(event) {
+
+	if (event.keyCode != 71){
+		keyMap.set(event.keyCode, false);
+	}
+}
+
+
+window.addEventListener("keydown", keydown, false);
+window.addEventListener("keyup", keyup, false);
+window.addEventListener("mousemove", mouseHandler, false);
+
+
+
+
+
 
 function readOBJFile(fileName, gl, scale, reverse) {
   
@@ -237,31 +280,40 @@ var initShellDemo = function(){
 
 function updateWorld(){
 
-	console.log("updating world");
+	//console.log("updating world");
 
-	while (cont){
-
-		if (dir > 0){
-
-			console.log("right");
-
-			dir = 0;
-			player.move(0.1,0.0,0.0);
-		}
-
-		else if (dir < 0){
-
-			console.log("left");
-
-			dir = 0;
-			player.move(-0.1,0.0,0.0);
-		}
-		else {
-			//nada for now
-		}
-
-		render(player.getView());
+	if (cont == 0){
+		return;
 	}
+
+	if (keyMap.get(65)){
+		console.log("to the left...");
+		player.move(0.1,0.0,0.0);
+	}
+
+	if (keyMap.get(68)){
+		player.move(-0.1,0.0,0.0);
+	}
+
+	//if (keyMap.get(87)){
+		//player.move(0.1,0.0,0.0);
+	//}
+
+	//if (keyMap.get(83)){
+
+	//}
+	if (!mouseRead){
+
+
+
+		player.rotate(vec3.fromValues(0.0,1.0,0.0), deltamX/100);
+		player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
+
+		mouseRead = true;
+	}
+
+	render(player.getView());
+	window.requestAnimationFrame(updateWorld)	
 }
 
 
@@ -315,6 +367,4 @@ function proceedToDraw() {
     gl.drawElements(gl.LINE_LOOP, n, gl.UNSIGNED_SHORT ,0);
 
     console.log("drew");
-
-    updateWorld();
 };
