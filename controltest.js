@@ -1,3 +1,10 @@
+var mat4 = glMatrix.mat4;
+var vec3 = glMatrix.vec3;
+var quat = glMatrix.quat;
+
+var gl, prog;
+
+
 var vert_shader = `
 
 precision mediump float;
@@ -7,6 +14,7 @@ uniform vec3 vertcolor;
 
 uniform mat4 viewmat;
 uniform mat4 frustmat;
+uniform float timevar;
 
 varying vec3 color;
 
@@ -14,7 +22,7 @@ void main(){
 
     color = vertcolor;
     gl_Position = frustmat * viewmat * vec4(vertpos, 1.0);
-    gl_PointSize = 10.0;
+    gl_PointSize = 20.0;
 }`;
 
 
@@ -32,92 +40,56 @@ void main(){
 
 
 
-/*class Vert {
-
-    coords;
-    color;
-    uv;
-
-    constructor(xp, yp, zp, rp, gp, bp, sp, tp){
-
-        this.x = xp;
-        this.y = yp;
-        this.z = zp;
-        this.r = rp;
-        this.g = gp;
-        this.b = bp;
-        this.s = sp;
-        this.t = tp;
-    }
-
-    constructor(xp,yp,zp){
-        this.x = xp;
-        this.y = yp;
-        this.z = zp;
-        this.r = 0;
-        this.g = 0;
-        this.b = 0;
-        this.s = 0;
-        this.t = 0;
-    }
 
 
-    constructor(xp,yp,zp, rp, gp, bp){
-        this.x = xp;
-        this.y = yp;
-        this.z = zp;
-        this.r = rp;
-        this.g = gp;
-        this.b = bp;
-        this.s = 0;
-        this.t = 0;
-    }
+class Player {
 
-    toArray(){
-        return [x, y, z, r, g, b, s, t];
-    }
+	constructor(){
+
+		this.eyePt = vec3.fromValues(0.0,1.0,0.0);
+		this.focusVec = vec3.fromValues(0.0,0.0,10.0);
+		this.upVec = vec3.fromValues(0.0,1.0,0.0);
+		this.focusCoord = vec3.create();
+		
+		this.lookMat = mat4.create();
+
+		this.rot = mat4.create();
+		this.tran = mat4.create();
+	}
+
+
+
+	rotate(axis, deg){
+
+		mat4.fromRotation(rot, deg ,axis);
+
+		//vec3.transformMat4(eyeCoord, ); eye coord wouldnt change right?
+		vec3.transformMat4(upVec, upVec, rot);
+		vec3.transformMat4(focusVec, focusVec, rot); //probably wrong...
+	}
+
+
+	move(x,y,z){
+
+		//mat4.fromTranslation(tran, direction);
+		vec3.add(this.eyePt, this.eyePt, vec3.fromValues(x,y,z));
+	}
+
+
+	getView(){
+
+		vec3.add(this.focusCoord, this.eyePt, this.focusVec);
+
+		mat4.lookAt(this.lookMat, this.eyePt, this.focusCoord, this.upVec);
+
+		return this.lookMat;
+	}
 }
 
 
-class Triangle {
-
-    one, two, three;
-
-    constructor(onep, twop, threep){
-
-        this.one = onep;
-        this.two = twop;
-        this.three = threep;
-    }
-}
 
 
-class Obj {
 
-    tris = [];
-
-    constructor(){
-        tris = [];
-    }
-
-    addTri(tri){
-
-        tris.push(tri);
-    }
-
-    toArray(){
-        //
-    }
-}
-
-*/
-
-
-var mat4 = glMatrix.mat4;
-var vec3 = glMatrix.vec3;
-var quat = glMatrix.quat;
-
-var gl, prog;
 
 function initGL(gl, canvas){
     if (!gl){
@@ -150,6 +122,11 @@ var recv = vec3.create();
 var rotationQuat = quat.create(); 
 quat.fromEuler(rotationQuat, 0,0,0);
 
+
+var player = new Player();
+
+
+
 var toOrg = vec3.create();
 vec3.sub(toOrg, focusPt, vec3.create());
 var scale = vec3.fromValues(1,1,1);
@@ -163,7 +140,7 @@ var viewmat, frustmat, rotmat = mat4.create();
 var timemem, time;
 var samplermem;
 
-var cont = 1;
+var cont = 0;
 var dir = 0;
 
 var n = 0;
@@ -171,38 +148,17 @@ var n = 0;
 var currTime, timePassed;
 
 
-function render(){
-
-	if (cont == 0){
-		return;
-	}
-
-    timePassed = performance.now() - currTime;
-
-    quat.fromEuler(rotationQuat, 0, timePassed/10000 * Math.PI/4 * dir, 0);
-
-    mat4.fromRotationTranslationScaleOrigin(rotmat, rotationQuat, dummyTransl, scale, toOrg);
-    vec3.transformMat4(eyeCoord, eyeCoord, rotmat);
-
-    mat4.lookAt(viewmatrix, eyeCoord, focusPt, upDir);
+function render(viewmatrix){
 
     gl.uniformMatrix4fv(viewmat,false, viewmatrix);
-    //gl.uniform1f(timeMem, (timePassed/1000) % 5000);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-
     gl.uniform3f(colorMem, 1.0, 1.0, 1.0);
-    //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.drawElements(gl.POINTS, n, gl.UNSIGNED_SHORT, 0);
 
     gl.uniform3f(colorMem, 0.0, 0.0, 1.0);
-
-    gl.drawElements(gl.LINE_LOOP, n, gl.UNSIGNED_SHORT, 0);
-
-
-
-    window.requestAnimationFrame(render);
+    gl.drawElements(gl.LINES, n, gl.UNSIGNED_SHORT, 0);
 }
 
 
@@ -211,6 +167,8 @@ function render(){
 document.onkeydown = function(ev){ trigger(ev); };
     
 function trigger(ev) {
+
+	console.log("keypressed");
 
     if (ev.keyCode == 39){
         dir += 1;
@@ -223,8 +181,7 @@ function trigger(ev) {
     }
     else if (ev.keyCode == 87){//w
         cont = 1;
-        currTime = performance.now();
-        window.requestAnimationFrame(render);
+        updateWorld();
     }
 
     else {return;}
@@ -243,45 +200,6 @@ function readOBJFile(fileName, gl, scale, reverse) {
   request.open('GET', fileName, true); // Create a request to acquire the file
   request.send();                      // Send the request
 }
-
-
-/*function loadTexture(gl, img){
-
-    console.log("up here width is: " + img.width);
-
-    var texture = gl.createTexture();
-
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); // Flip the image's y axis
-
-    //var image = createTextureFromImage(gl, img);
-    //^^texImg2D called in that func
-
-
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
-
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-
-    gl.uniform1i(samplermem, 0);
-}
-
-
-
-function initTexture(gl){
-
-    var img = new Image();
-
-    img.onload = function(){ loadTexture(gl, img);};
-
-    img.crossOrigin = "anonymous"; 
-    img.src = "./images/foam.jpg";
-}*/
 
 
 
@@ -319,13 +237,31 @@ var initShellDemo = function(){
 
 function updateWorld(){
 
-	//
+	console.log("updating world");
 
+	while (cont){
 
+		if (dir > 0){
 
+			console.log("right");
 
+			dir = 0;
+			player.move(0.1,0.0,0.0);
+		}
 
+		else if (dir < 0){
 
+			console.log("left");
+
+			dir = 0;
+			player.move(-0.1,0.0,0.0);
+		}
+		else {
+			//nada for now
+		}
+
+		render(player.getView());
+	}
 }
 
 
@@ -370,6 +306,9 @@ function proceedToDraw() {
 
     frustmat = gl.getUniformLocation(prog, 'frustmat');
     gl.uniformMatrix4fv(frustmat, false, frust);
+
+    timeMem = gl.getUniformLocation(prog, 'timevar');
+    gl.uniform1f(timeMem, performance.now());
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
