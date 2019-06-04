@@ -7,6 +7,35 @@ var gobData = null; // The information for drawing 3D model
 
 
 
+function initVertexBuffers(gl, program) {
+
+    var o = new Object(); // Utilize Object object to return multiple buffer objects
+    o.vertexBuffer = createEmptyArrayBuffer(gl, program.vertex_mem, 3, gl.FLOAT); 
+    o.normalBuffer = createEmptyArrayBuffer(gl, program.a_Normal, 3, gl.FLOAT);
+    o.colorBuffer = createEmptyArrayBuffer(gl, program.a_Color, 4, gl.FLOAT);
+    o.indexBuffer = gl.createBuffer();
+    if (!o.vertexBuffer || !o.normalBuffer || !o.colorBuffer || !o.indexBuffer) { return null; }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    return o;
+}
+
+
+function createEmptyArrayBuffer(gl, a_attribute, num, type) {
+  var buffer =  gl.createBuffer();  // Create a buffer object
+  if (!buffer) {
+    console.log('Failed to create the buffer object');
+    return null;
+  }
+  /*gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);  // Assign the buffer object to the attribute variable
+  gl.enableVertexAttribArray(a_attribute);  // Enable the assignment*/
+
+  return buffer;
+}
+
+
 
 function readOBJFile(fileName, gl, scale, reverse) {
   
@@ -24,10 +53,12 @@ function readOBJFile(fileName, gl, scale, reverse) {
 
   var result = objDoc.parse(request.responseText, scale, reverse); // Parse the file
 
+  var model = initVertexBuffers(gl, )
+
   if (!result) {
     return null;
   }
-  else return objDoc;
+  else return bindVertexBuffers(gl, );
 }
 
 
@@ -35,7 +66,7 @@ function readOBJFile(fileName, gl, scale, reverse) {
 
 
 // OBJ File has been read compreatly
-function onReadComplete(gl, model, objDoc) {
+function bindVertexBuffers(gl, model, objDoc) {
   // Acquire the vertex coordinates and colors from OBJ file
   var drawingInfo = objDoc.getDrawingInfo();
 

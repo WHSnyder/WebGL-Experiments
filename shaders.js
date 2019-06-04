@@ -33,7 +33,6 @@ void main(){
 
     gl_Position = frustmat * viewmat * vec4(vertpos + vec3(0.2 * sin(timevar + vertpos.x * vertpos.y)), 1.0);
     gl_PointSize = 20.0;
-
 }`;
 
 
@@ -43,11 +42,9 @@ precision mediump float;
 
 varying vec3 color;
 
-
 void main(){
 
     gl_FragColor = vec4(color, 1.0);
-
 }`;
 
 
@@ -127,6 +124,9 @@ void main(){
 
 
 
+
+
+
 function initShader(gl, shaderVar, shaderText){
 
     gl.shaderSource(shaderVar, shaderText);
@@ -161,18 +161,46 @@ function generateProgram(gl, vs, fs){
 
 
 
-var shader_lit_object = generateProgram(gl, vs_shell, fs_shell);
-var shader_shadow_cast = generateProgram(gl, vs_shadow, fs_shadow);
+var snormal_data = {
+
+    program: generateProgram(gl, vs_shell, fs_shell),
+    vertex_mem: gl.getAttribLocation(this.program, "vertpos"),
+    vertex_normal_mem: gl.getAttribLocation(this.program, "normal"),
+
+    vertex_color_mem: gl.getUniformLocation(this.program, "vertcolor"),
+
+    time_mem: gl.getUniformLocation(this.program, "timevar"),
+
+    light_dir_mem: gl.getUniformLocation(this.program, "lightdir"),
+    light_color_mem: gl.getUniformLocation(this.program, "lightcolor"),
+
+    player_view_mem: gl.getUniformLocation(this.program, "frustmat"),
+    player_frust_mem: gl.getUniformLocation(this.program, "viewmat")
+};
 
 
 
-function shadeLitObj(object, color, disp, light, shadowmap){
+function setNormalShaderData(player, object, shader, light){
 
-        	
+    var buffers = object.getDrawingInfo();
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.vertexBuffer);
+    gl.vertexAttribPointer(shader.vertex_mem, num, type, false, 0, 0);  // Assign the buffer object to the attribute variable
+    gl.enableVertexAttribArray(shader.vertex_mem); 
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.normalBuffer);
+    gl.vertexAttribPointer(shader.vertex_normal_mem, num, type, false, 0, 0);  // Assign the buffer object to the attribute variable
+    gl.enableVertexAttribArray(shader.vertex_normal_mem);
 
+    gl.uniform1f(shader.time_mem, performance.now()/1000); 
 
+    gl.uniform3f(light_dir_mem, 0.0, -1.0, 0.0);
+    gl.uniform3f(light_color_mem, light.color);
+
+    gl.uniform4fv(player_view_mem, player.getView());
+    gl.uniform4fv(player_frust_mem, player.frustMat);
+
+    gl.useProgram(shader.program);
 }
 
 
@@ -183,23 +211,63 @@ function shadeLitObj(object, color, disp, light, shadowmap){
 
 
 
+//buffer stuff
 
 
-var shaders = new Map();
+function offscreenBuffer(gl){
+
+    var framebuffer = gl.createFramebuffer();
+
+    var texture = gl.createTexture();
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0, gl.RGBA, gl.UNISGNED_BYTE, null);
+
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    frambuffer.texture = texture;
+
+    depthbuffer = gl.createRenderbuffer();
+
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depthbuffer);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, 512, 512);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthbuffer);
+
+
+    var e = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (gl.FRAMEBUFFER_COMPLETE !== e) {
+        console.log('Frame buffer object is incomplete: ' + e.toString());
+        return error();
+    }
+
+    return framebuffer;
+}
 
 
 
 
+function initShadowData(object, light, shadowbuffer){
 
+    gl.bindFramebuffer(gl.FRAMEBUFFER, shadowBuffer);
 
+    var lightviewmat = gl.getUniformLocation(shader_shadow_cast, "lightView");
+    var lightprojmat = gl.getUniformLocation(shader_shadow_cast, "lightProj");
+    var vertpos = gl.getAttribLocation(shader_shadow_cast, "position");
 
+    gl.uniformMatrix4fv(lightviewmat, false, light.lookMat);
+    gl.uniformMatrix4fv(lightprojmat, false, frust);
 
+    var vertBuf = gl.createBuffer();
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, object.vertices, gl.STATIC_DRAW);
 
+    gl.vertexAttribPointer(vertpos, 3, gl.FLOAT, gl.FALSE, elSize * 3, 0);
+    gl.enableVertexAttrivArray(vertpos);
 
-
-
-
-
-
-
+    gl.useProgram(shader_shadow_cast);
+    console.log("shadow shader inited..");
+}
