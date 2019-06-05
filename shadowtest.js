@@ -116,22 +116,15 @@ function updateWorld(){
 
 	processInput(player);
 
-	render(player.getView());
+	setNormalShaderData(player, objects[0], shader, light);
+
+	gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_SHORT ,0);
+
+	
 	window.requestAnimationFrame(updateWorld)	
 }
 
 
-
-function render(){
-
-
-
-
-
-
-
-
-}
 
 
 

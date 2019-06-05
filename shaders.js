@@ -192,6 +192,9 @@ function setNormalShaderData(player, object, shader, light){
     gl.vertexAttribPointer(shader.vertex_normal_mem, num, type, false, 0, 0);  // Assign the buffer object to the attribute variable
     gl.enableVertexAttribArray(shader.vertex_normal_mem);
 
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, drawingInfo.indices, gl.STATIC_DRAW);
+
     gl.uniform1f(shader.time_mem, performance.now()/1000); 
 
     gl.uniform3f(light_dir_mem, 0.0, -1.0, 0.0);

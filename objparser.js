@@ -7,16 +7,18 @@ var gobData = null; // The information for drawing 3D model
 
 
 
-function initVertexBuffers(gl, program) {
+function initVertexBuffers(gl, program, obj) {
 
     var o = new Object(); // Utilize Object object to return multiple buffer objects
-    o.vertexBuffer = createEmptyArrayBuffer(gl, program.vertex_mem, 3, gl.FLOAT); 
-    o.normalBuffer = createEmptyArrayBuffer(gl, program.a_Normal, 3, gl.FLOAT);
-    o.colorBuffer = createEmptyArrayBuffer(gl, program.a_Color, 4, gl.FLOAT);
+    o.vertexBuffer = gl.createBuffer();//createEmptyArrayBuffer(gl, program.vertex_mem, 3, gl.FLOAT); 
+    o.normalBuffer = gl.createBuffer();//createEmptyArrayBuffer(gl, program.a_Normal, 3, gl.FLOAT);
+    o.colorBuffer = gl.createBuffer();//createEmptyArrayBuffer(gl, program.a_Color, 4, gl.FLOAT);
     o.indexBuffer = gl.createBuffer();
     if (!o.vertexBuffer || !o.normalBuffer || !o.colorBuffer || !o.indexBuffer) { return null; }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    obj.model = o;
 
     return o;
 }
@@ -37,7 +39,8 @@ function createEmptyArrayBuffer(gl, a_attribute, num, type) {
 
 
 
-function readOBJFile(fileName, gl, scale, reverse) {
+
+function readOBJFile(fileName, gl, scale, reverse, program) {
   
   var request = new XMLHttpRequest();
 
@@ -53,7 +56,7 @@ function readOBJFile(fileName, gl, scale, reverse) {
 
   var result = objDoc.parse(request.responseText, scale, reverse); // Parse the file
 
-  var model = initVertexBuffers(gl, )
+  var model = initVertexBuffers(gl, program)
 
   if (!result) {
     return null;
@@ -100,6 +103,8 @@ var OBJDoc = function(fileName) {
   this.objects = new Array(0);   // Initialize the property for Object
   this.vertices = new Array(0);  // Initialize the property for Vertex
   this.normals = new Array(0);   // Initialize the property for Normal
+  this.model = null;
+  this.drawData = null;
 }
 
 // Parsing the OBJ file
@@ -379,8 +384,9 @@ OBJDoc.prototype.getDrawingInfo = function() {
       }
     }
   }
-
-  return new DrawingInfo(vertices, normals, colors, indices);
+  var info = new DrawingInfo(vertices, normals, colors, indices);
+  this.drawData = info;
+  return info;
 }
 
 //------------------------------------------------------------------------------
