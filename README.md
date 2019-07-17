@@ -1,2 +1,2 @@
 # WebGLLightGame
-Volumetric light game for website
+Not-so-Volumetric light game for website
