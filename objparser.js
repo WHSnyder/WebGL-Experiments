@@ -5,71 +5,30 @@
 var gob = null;      // The information of OBJ file
 var gobData = null; // The information for drawing 3D model
 
-
-
-function initVertexBuffers(gl, program, obj) {
-
-    var o = new Object(); // Utilize Object object to return multiple buffer objects
-    o.vertexBuffer = gl.createBuffer();//createEmptyArrayBuffer(gl, program.vertex_mem, 3, gl.FLOAT); 
-    o.normalBuffer = gl.createBuffer();//createEmptyArrayBuffer(gl, program.a_Normal, 3, gl.FLOAT);
-    o.colorBuffer = gl.createBuffer();//createEmptyArrayBuffer(gl, program.a_Color, 4, gl.FLOAT);
-    o.indexBuffer = gl.createBuffer();
-    if (!o.vertexBuffer || !o.normalBuffer || !o.colorBuffer || !o.indexBuffer) { return null; }
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-    obj.model = o;
-
-    return o;
-}
-
-
-function createEmptyArrayBuffer(gl, a_attribute, num, type) {
-  var buffer =  gl.createBuffer();  // Create a buffer object
-  if (!buffer) {
-    console.log('Failed to create the buffer object');
-    return null;
-  }
-  /*gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.vertexAttribPointer(a_attribute, num, type, false, 0, 0);  // Assign the buffer object to the attribute variable
-  gl.enableVertexAttribArray(a_attribute);  // Enable the assignment*/
-
-  return buffer;
-}
+// Read a file
 
 
 
-
-function readOBJFile(fileName, gl, scale, reverse, program) {
-  
-  var request = new XMLHttpRequest();
-
-  request.onreadystatechange = function() {
-    if (request.readyState === 4 && request.status !== 404) {
-      onReadOBJFile(request.responseText, fileName, gl, scale, reverse);
-    }
-  }
-  request.open('GET', fileName, false); // Create a request to acquire the file
-  request.send();                      // Send the request
-
+// OBJ File has been read
+function onReadOBJFile(fileString, fileName, gl, scale, reverse) {
   var objDoc = new OBJDoc(fileName);  // Create a OBJDoc object
 
-  var result = objDoc.parse(request.responseText, scale, reverse); // Parse the file
-
-  var model = initVertexBuffers(gl, program)
+  var result = objDoc.parse(fileString, scale, reverse); // Parse the file
 
   if (!result) {
+    gob = null; gobData= null;
+    console.log("OBJ file parsing error.");
     return null;
   }
-  else return bindVertexBuffers(gl, );
+  gob = objDoc;
+
+  return null;
 }
-
-
 
 
 
 // OBJ File has been read compreatly
-function bindVertexBuffers(gl, model, objDoc) {
+function onReadComplete(gl, model, objDoc) {
   // Acquire the vertex coordinates and colors from OBJ file
   var drawingInfo = objDoc.getDrawingInfo();
 
@@ -103,8 +62,6 @@ var OBJDoc = function(fileName) {
   this.objects = new Array(0);   // Initialize the property for Object
   this.vertices = new Array(0);  // Initialize the property for Vertex
   this.normals = new Array(0);   // Initialize the property for Normal
-  this.model = null;
-  this.drawData = null;
 }
 
 // Parsing the OBJ file
@@ -121,8 +78,8 @@ OBJDoc.prototype.parse = function(fileString, scale, reverse) {
   var sp = new StringParser();  // Create StringParser
   while ((line = lines[index++]) != null) {
     sp.init(line);                  // init StringParser
-	var command = sp.getWord();     // Get command
-	if(command == null)	 continue;  // check null command
+  var command = sp.getWord();     // Get command
+  if(command == null)  continue;  // check null command
 
     switch(command){
     case '#':
@@ -292,7 +249,7 @@ function onReadMTLFile(fileString, mtl) {
   while ((line = lines[index++]) != null) {
     sp.init(line);                  // init StringParser
     var command = sp.getWord();     // Get command
-    if(command == null)	 continue;  // check null command
+    if(command == null)  continue;  // check null command
 
     switch(command){
     case '#':
@@ -384,9 +341,8 @@ OBJDoc.prototype.getDrawingInfo = function() {
       }
     }
   }
-  var info = new DrawingInfo(vertices, normals, colors, indices);
-  this.drawData = info;
-  return info;
+
+  return new DrawingInfo(vertices, normals, colors, indices);
 }
 
 //------------------------------------------------------------------------------
@@ -536,7 +492,7 @@ function getWordLength(str, start) {
   for(var i = start, len = str.length; i < len; i++){
     var c = str.charAt(i);
     if (c == '\t'|| c == ' ' || c == '(' || c == ')' || c == '"') 
-	break;
+  break;
   }
   return i - start;
 }

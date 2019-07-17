@@ -7,49 +7,49 @@ var gl, prog;
 
 class Player {
 
-	//var eyePt = 1;
+    //var eyePt = 1;
 
-	constructor(){
+    constructor(){
 
-		this.eyePt = vec3.fromValues(0.0,1.0,0.0);
-		this.focusVec = vec3.fromValues(0.0,0.0,10.0);
-		this.upVec = vec3.fromValues(0.0,1.0,0.0);
-		this.focusCoord = vec3.create();
-		
-		this.lookMat = mat4.create();
+        this.eyePt = vec3.fromValues(0.0,0.0,0.0);
+        this.focusVec = vec3.fromValues(0.0,0.0,6.7);
+        this.upVec = vec3.fromValues(0.0,1.0,0.0);
+        this.focusCoord = vec3.create();
+        
+        this.lookMat = mat4.create();
 
-		this.rot = mat4.create();
-		this.tran = mat4.create();
-	}
+        this.rot = mat4.create();
+        this.tran = mat4.create();
+    }
 
-	rotate(axis, deg){
+    rotate(axis, deg){
 
-		mat4.fromRotation(this.rot, deg, axis);
+        mat4.fromRotation(this.rot, deg, axis);
 
-		vec3.transformMat4(this.upVec, this.upVec, this.rot);
-		vec3.transformMat4(this.focusVec, this.focusVec, this.rot); //probably wrong...
-	}
+        vec3.transformMat4(this.upVec, this.upVec, this.rot);
+        vec3.transformMat4(this.focusVec, this.focusVec, this.rot); //probably wrong...
+    }
 
-	move(x,y,z){
+    move(x,y,z){
 
 
-		console.log("b4: " + this.eyePt);
-		vec3.add(this.eyePt, this.eyePt, vec3.fromValues(x,y,z));
-		console.log("af: " + this.eyePt);
-	}
+        console.log("b4: " + this.eyePt);
+        vec3.add(this.eyePt, this.eyePt, vec3.fromValues(x,y,z));
+        console.log("af: " + this.eyePt);
+    }
 
-	getView(){
+    getView(){
 
-		vec3.add(this.focusCoord, this.eyePt, this.focusVec);
+        vec3.add(this.focusCoord, this.eyePt, this.focusVec);
 
-		mat4.lookAt(this.lookMat, this.eyePt, this.focusCoord, this.upVec);
+        mat4.lookAt(this.lookMat, this.eyePt, this.focusCoord, this.upVec);
 
-		return this.lookMat;
-	}
+        return this.lookMat;
+    }
 
-	getUp(){
-		return this.upVec;
-	}
+    getUp(){
+        return this.upVec;
+    }
 }
 
 
@@ -60,7 +60,7 @@ function initGL(gl, canvas){
         alert("Dude get hip");
         return -1;
     }
-  	gl.clearColor(0, 0, 0, 1);
+    gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     return 0;
 }
@@ -94,12 +94,17 @@ var scale = vec3.fromValues(1,1,1);
 var dummyTransl = vec3.create();
 var angle = 0;
 var frust = mat4.create();
-mat4.perspective(frust, Math.PI/2, 4/3, .1, 20);
+mat4.perspective(frust, Math.PI/2, 4/3, .1, 40);
 
 var viewmatrix =  mat4.create();
 var viewmat, frustmat, rotmat = mat4.create();
 var timemem, time;
 var samplermem;
+var colormem;
+var clickposmem;
+var clicktimemem;
+var flagmem;
+var mouseposmem;
 
 var cont = 0;
 var dir = 0;
@@ -108,6 +113,8 @@ var n = 0;
 
 var currTime, timePassed;
 
+var clicktime = 0;
+var clickpos = vec3.fromValues(0.0,0.0,6.7);
 
 
 
@@ -119,10 +126,27 @@ function render(viewmatrix){
     timeMem = gl.getUniformLocation(prog, 'timevar');
     gl.uniform1f(timeMem, performance.now()/1000);
 
+    gl.uniform1f(clicktimemem, clicktime);
+    gl.uniform3f(clickposmem, clickpos[0],clickpos[1],clickpos[2]);
+    gl.uniform1f(flagmem, 5.0);
+
+
+    //console.log("Passing position: " + clickpos);
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.uniform3f(colorMem, 1.0, 0.0, 1.0);
+
+    gl.uniform2f(mouseposmem, mouseX, mouseY);
+
+
     gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_SHORT, 0);
+
+    gl.uniform1f(flagmem, -5.0);
+
+    gl.drawElements(gl.LINES, n, gl.UNSIGNED_SHORT, 0);
+
+
 }
 
 
@@ -134,22 +158,34 @@ var deltamX = 0, delatmY = 0;
 var mouseRead = false;
 
 
+
+function updateClick(){
+
+    clicktime = performance.now()/1000;
+    vec3.add(clickpos, player.focusVec, player.eyePt);
+
+    console.log("Click coords: " + clickpos + " Length: " + vec3.length(clickpos));
+}
+
+
 function mouseHandler(e){
 
-	mouseRead = false;
+    mouseRead = false;
 
-	if (!mouseInitialized){
-		deltamX = 0;
-		deltamY = 0;
-		mouseInitialized = true;
-	}
-	else {
-		deltamX = e.pageX - mouseX;
-		deltamY = e.pageY - mouseY;
-	}
+    if (!mouseInitialized){
+        deltamX = 0;
+        deltamY = 0;
+        mouseInitialized = true;
+    }
+    else {
+        deltamX = e.pageX - mouseX;
+        deltamY = e.pageY - mouseY;
+    }
 
-	mouseX = e.pageX;
-	mouseY = e.pageY;
+    mouseX = e.pageX;
+    mouseY = e.pageY;
+
+   
 }
 
 
@@ -166,31 +202,35 @@ keyMap.set(71, false);//go
 keyMap.set(84, false);//terminate
 
 function keydown(event) {
-	
-	if (event.keyCode == 71 && !keyMap.get(71)){
-		cont = 1;
-		console.log("pressed g...");
-		window.requestAnimationFrame(updateWorld);
-	}
-	else if (event.keyCode == 84){
-		cont = 0;
-		keyMap.set(71, false);
-	}
-	keyMap.set(event.keyCode, true);
+    
+    if (event.keyCode == 71 && !keyMap.get(71)){
+        cont = 1;
+        console.log("pressed g...");
+        window.requestAnimationFrame(updateWorld);
+    }
+    else if (event.keyCode == 84){
+        cont = 0;
+        keyMap.set(71, false);
+    }
+    else if (event.keyCode == 87){
+        updateClick()
+    }
+    keyMap.set(event.keyCode, true);
 }
 
 
 function keyup(event) {
 
-	if (event.keyCode != 71){
-		keyMap.set(event.keyCode, false);
-	}
+    if (event.keyCode != 71){
+        keyMap.set(event.keyCode, false);
+    }
 }
 
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
 window.addEventListener("mousemove", mouseHandler, false);
+window.addEventListener("click", updateClick, false);
 
 
 
@@ -238,7 +278,7 @@ var initShellDemo = function(){
 
     gl.enable(gl.DEPTH_TEST);
 
-    readOBJFile("./models/shell.obj", gl, 4, 0);
+    readOBJFile("./models/sphereshell.obj", gl, 4, 0);
 
     console.log("initialized");
 };
@@ -247,32 +287,32 @@ var initShellDemo = function(){
 
 function updateWorld(){
 
-	//console.log("updating world");
+    //console.log("updating world");
 
-	if (cont == 0){
-		return;
-	}
+    if (cont == 0){
+        return;
+    }
 
-	if (keyMap.get(65)){
-		console.log("to the left...");
-		player.move(0.1,0.0,0.0);
-	}
+    if (keyMap.get(65)){
+        console.log("to the left...");
+        player.move(0.1,0.0,0.0);
+    }
 
-	if (keyMap.get(68)){
-		player.move(-0.1,0.0,0.0);
-	}
+    if (keyMap.get(68)){
+        player.move(-0.1,0.0,0.0);
+    }
 
-	
-	if (!mouseRead){
+    
+    if (!mouseRead){
 
-		player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
-		player.rotate(player.getUp(), -deltamX/100);
+        player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
+        player.rotate(player.getUp(), -deltamX/100);
 
-		mouseRead = true;
-	}
+        mouseRead = true;
+    }
 
-	render(player.getView());
-	window.requestAnimationFrame(updateWorld)	
+    render(player.getView());
+    window.requestAnimationFrame(updateWorld)   
 }
 
 
@@ -289,7 +329,7 @@ function proceedToDraw() {
     gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
     gl.bufferData(gl.ARRAY_BUFFER, gobData.vertices, gl.STATIC_DRAW);
 
-    console.log("vert buffer: " +  gob.vertices.map(v => "[" + v.x + ","+ v.y+ "," + v.z + "]"));
+    //console.log("vert buffer: " +  gob.vertices.map(v => "[" + v.x + ","+ v.y+ "," + v.z + "]"));
 
     var elSize = gobData.vertices.BYTES_PER_ELEMENT;
 
@@ -317,7 +357,7 @@ function proceedToDraw() {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indBuf);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, gobData.indices, gl.STATIC_DRAW);
 
-    console.log("index buffer: " + gob.indices);
+    //console.log("index buffer: " + gob.indices);
 
     n = gobData.indices.length;
 
@@ -338,9 +378,16 @@ function proceedToDraw() {
     lightCol = gl.getUniformLocation(prog, 'lightcolor');
     gl.uniform3f(lightCol, 1.0, 1.0, 1.0)
 
+    clicktimemem = gl.getUniformLocation(prog, 'clicktime');
+    clickposmem = gl.getUniformLocation(prog, 'clickpos');
+
+    flagmem = gl.getUniformLocation(prog, 'flag');
+
+    mouseposmem = gl.getUniformLocation(prog, 'mousepos');
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     gl.drawElements(gl.LINE_LOOP, n, gl.UNSIGNED_SHORT ,0);
 
-    console.log("drew");
+    //console.log("drew");
 };
