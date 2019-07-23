@@ -2,6 +2,9 @@ var mat4 = glMatrix.mat4;
 var vec3 = glMatrix.vec3;
 var quat = glMatrix.quat;
 
+var current_time = 0;
+
+
 var gl, prog;
 
 
@@ -11,8 +14,8 @@ class Player {
 
     constructor(){
 
-        this.eyePt = vec3.fromValues(0.0,0.0,0.0);
-        this.focusVec = vec3.fromValues(0.0,0.0,6.7);
+        this.eyePt = vec3.fromValues(-4.0,0.0,0.0);
+        this.focusVec = vec3.fromValues(0.0,0.0,40.0);
         this.upVec = vec3.fromValues(0.0,1.0,0.0);
         this.focusCoord = vec3.create();
         
@@ -80,7 +83,7 @@ function initShader(gl, shaderVar, shaderText){
 
 
 var eyeCoord = vec3.fromValues(0,0,0);
-var focusPt = vec3.fromValues(0,0,-6);
+var focusPt = vec3.fromValues(0,0,-40);
 var upDir = vec3.fromValues(0,1,0);
 var recv = vec3.create();
 var rotationQuat = quat.create(); 
@@ -88,13 +91,14 @@ quat.fromEuler(rotationQuat, 0,0,0);
 
 var player = new Player();
 
+
 var toOrg = vec3.create();
 vec3.sub(toOrg, focusPt, vec3.create());
 var scale = vec3.fromValues(1,1,1);
 var dummyTransl = vec3.create();
 var angle = 0;
 var frust = mat4.create();
-mat4.perspective(frust, Math.PI/2, 4/3, .1, 40);
+mat4.perspective(frust, Math.PI/2, 4/3, .1, null);
 
 var viewmatrix =  mat4.create();
 var viewmat, frustmat, rotmat = mat4.create();
@@ -116,10 +120,19 @@ var currTime, timePassed;
 var clicktime = 0;
 var clickpos = vec3.fromValues(0.0,0.0,6.7);
 
-
+var updatefps = 0;
 
 
 function render(viewmatrix){
+
+	var now = performance.now();
+	
+	if (updatefps == 1){
+		updateFPS(now - current_time);
+		updatefps = 0;
+	}
+
+	current_time = now;
 
     gl.uniformMatrix4fv(viewmat,false, viewmatrix);
 
@@ -130,8 +143,6 @@ function render(viewmatrix){
     gl.uniform3f(clickposmem, clickpos[0],clickpos[1],clickpos[2]);
     gl.uniform1f(flagmem, 5.0);
 
-
-    //console.log("Passing position: " + clickpos);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -184,8 +195,6 @@ function mouseHandler(e){
 
     mouseX = e.pageX;
     mouseY = e.pageY;
-
-   
 }
 
 
@@ -206,6 +215,7 @@ function keydown(event) {
     if (event.keyCode == 71 && !keyMap.get(71)){
         cont = 1;
         console.log("pressed g...");
+
         window.requestAnimationFrame(updateWorld);
     }
     else if (event.keyCode == 84){
@@ -213,7 +223,7 @@ function keydown(event) {
         keyMap.set(71, false);
     }
     else if (event.keyCode == 87){
-        updateClick()
+        updatefps = 1;
     }
     keyMap.set(event.keyCode, true);
 }
@@ -284,8 +294,9 @@ var initShellDemo = function(){
 };
 
 
-
 function updateWorld(){
+
+	
 
     //console.log("updating world");
 
@@ -325,6 +336,8 @@ function proceedToDraw() {
     gobData = gob.getDrawingInfo();
     
     var vertBuf = gl.createBuffer();
+
+    console.log("Normals: " + gobData.normals);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
     gl.bufferData(gl.ARRAY_BUFFER, gobData.vertices, gl.STATIC_DRAW);
