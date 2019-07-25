@@ -1,41 +1,43 @@
 var ripple_vs = `
-
 #define M_PI 3.1415926535897932384626433832795
 
 precision mediump float;
 
-attribute vec3 vertpos;
-attribute vec3 normal;
-
-uniform vec3 vertcolor;
-
-uniform vec3 lightcolor;
-uniform vec3 lightdir;
-
-uniform mat4 viewmat;
-uniform mat4 frustmat;
-
-uniform float timevar;
-
-uniform float clicktime;
-uniform vec3 clickpos;
-
-uniform float flag;
+layout(location=0) in vec3 vertpos;
+layout(location=1) in vec3 normal;
 
 
-varying vec3 color;
+uniform FrameUniforms {
+
+	float flag;
+
+	mat4 viewmat;
+	mat4 frustmat;
+
+	float timevar;
+};
+
+
+uniform ClickData {
+	
+	float clicktime;
+	vec3 clickpos;
+};
+
+
+out vec3 color;
+
 
 
 void main(){
 
     float speed = 4.0;
     float dietime = 10.0;
+
     float timediff = timevar - clicktime;
 
     float wavedist = speed * timediff;
 
-
-    vec3 vertposnormed = normalize(vertpos);
     float between = abs(acos(dot(vertposnormed, normalize(clickpos))));
 
     float vertdist = (between / M_PI) * 6.7 * 2.0;
@@ -60,7 +62,7 @@ void main(){
     vec3 lcolor = vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
 
 
-    color = mag * vertcolor * lcolor;// * dotprod;
+    color = mag * lcolor;
 
     
     if (flag < 0.0){
@@ -76,16 +78,14 @@ void main(){
 
 
 var ripple_fs = `
-
 precision mediump float;
 
-uniform vec2 mousepos;
 
 varying vec3 color;
 
 void main(){
 
-	vec2 adjusted = vec2(mousepos.x - 10.0, 700.0-1.0 * mousepos.y);
+	/*vec2 adjusted = vec2(mousepos.x - 10.0, 700.0-1.0 * mousepos.y);
 
     float dist = length(gl_FragCoord.xy - adjusted);
 
@@ -93,9 +93,9 @@ void main(){
 
     if (dist < 50.0){
         addit = ((50.0 - dist)/50.0) * vec4(0.2,0.2,0.2,0.0);
-    }
+    }*/
 
-    gl_FragColor = vec4(color, 1.0) + addit;
+    gl_FragColor = vec4(color, 1.0);// + addit;
 }`;
 
 
@@ -105,11 +105,12 @@ var picking_vs = `
 
 layout(location=0) in vec4 aPosition;
         
-uniform mat4 uMVP;
+uniform mat4 viewmat;
+uniform mat4 frustmat;
+uniform mat4 modelmat;
     
 void main() {
-
-    gl_Position = uMVP * aPosition;
+    gl_Position = frustmat * viewmat * modelmat * aPosition;
 }`;
 
 
@@ -122,7 +123,6 @@ uniform vec3 uPickColor;
 out vec4 fragColor;
 
 void main() {
-
     fragColor = vec4(uPickColor, 1.0);
  }`;    
 
@@ -136,8 +136,11 @@ layout(location=0) in vec4 aPosition;
 layout(location=1) in vec3 aNormal;
 layout(location=2) in vec2 aTexCoord;
 
+uniform mat frustmat;
+
 uniform FrameUniforms {
-	mat4 uMVP;
+
+	mat4 viewmat;
 	mat4 uModelMatrix;
 	vec4 uHighlightColor;
 };
@@ -148,7 +151,7 @@ out vec2 vTexCoord;
 
 void main() {
 
-	gl_Position = uMVP * aPosition;
+	gl_Position = frustmat * viewmat * uModelMatrix * aPosition;
 	vPosition = vec3(uModelMatrix * aPosition);
 	vNormal = vec3(uModelMatrix * vec4(aNormal, 0.0));
 	vTexCoord = aTexCoord;
@@ -168,9 +171,10 @@ uniform SceneUniforms {
 };
 
 uniform FrameUniforms {
-	mat4 uMVP;
+
+	mat4 viewmat;
 	mat4 uModelMatrix;
-	vec4 uHighlightColor;1
+	vec4 uHighlightColor;
 };
         
 uniform sampler2D uTextureMap;
@@ -182,7 +186,7 @@ out vec4 fragColor;
 
 void main() {
 
-	vec4 baseColor = texture(uTextureMap, vTexCoord);
+	vec4 baseColor = vec3(1.0,1.0,0.0,1.0);//texture(uTextureMap, vTexCoord);
 	vec3 normal = normalize(vNormal);
 	vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
 	vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
@@ -205,6 +209,7 @@ let canvas = document.getElementById("view");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
 .depthTest()
@@ -212,12 +217,6 @@ let app = PicoGL.createApp(canvas)
 
 
 let timer = app.createTimer();
-
-
-//SET UP RIPPLE PROGRAM
-let rippleVS = ripple_vs;
-
-
 
 
 
@@ -236,11 +235,29 @@ let uv = app.createVertexBuffer(PicoGL.FLOAT, 2, box.uvs);
 let normals = app.createVertexBuffer(PicoGL.FLOAT, 3, box.normals);
 
 let boxArray = app.createVertexArray()
-
-
 .vertexAttributeBuffer(0, positions)
 .vertexAttributeBuffer(1, normals)
 .vertexAttributeBuffer(2, uv);
+
+
+var shell_verts, shell_norms;
+var shell = {data: null};
+
+readOBJFile("./models/sphereshell.obj", gl, 4, 0, shell)
+
+var shelldata = shell.data.getDrawingInfo()
+
+let shell_positions = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.vertices);
+let shell_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.normals);
+
+let shellArray = app.createVertexArray()
+.vertexAttributeBuffer(0, shell_positions)
+.vertexAttributeBuffer(1, shell_normals)
+
+
+
+
+
 
 
 
@@ -251,7 +268,7 @@ let unhighlightColor = vec3.fromValues(1.0, 1.0, 1.0);
 
 
 
-// UNIFORM BUFFER
+// UNIFORM BUFFERS
 let sceneUniforms = app.createUniformBuffer([
     PicoGL.FLOAT_VEC4,
     PicoGL.FLOAT_VEC4
@@ -261,18 +278,44 @@ let sceneUniforms = app.createUniformBuffer([
 
 
 
+let clickData = app.createUniformBuffer([
+
+	PicoGL.FLOAT,//clicktime
+	PicoGL.FLOAT_VEC2 //clickpos
+]).set(0, 0.0)
+.set(1, vec2.create())
+.update()
+
+
+
+let shellFrameUniforms = app.createUniformBuffer([
+
+	PicoGL.FLOAT, //flag
+	PicoGL.FLOAT_MAT4, //viewmat
+	PicoGL.FLOAT_MAT4, //frustmat
+
+	PicoGL.FLOAT //timevar
+]).set(0, 1.0)
+.set(1, player.getView())
+.set(2, frustmat)
+.set(3, 0.0)
+.update()
+
+
+
+
 window.onresize = function() {
 
     app.resize(window.innerWidth, window.innerHeight);
     pickingBuffer.resize();
-    mat4.perspective(projMatrix, Math.PI / 2, app.width / app.height, 0.1, 10.0);
-    mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
+    mat4.perspective(frustmat, Math.PI / 2, app.width / app.height, 0.1, null);
+    //mat4.multiply(viewProjMatrix, frustmat, viewMatrix);
 };
 
 
 
 // OBJECT DESCRIPTIONS
-let boxes = [
+let box = 
     {
         translate: [0, 0, 0],
         rotate: [0, 0, 0],
@@ -281,14 +324,21 @@ let boxes = [
         modelMatrix: mat4.create(),
         pickColor: vec3.fromValues(1.0, 0.0, 0.0),
         frameUniforms: app.createUniformBuffer([
-            PicoGL.FLOAT_MAT4,
-            PicoGL.FLOAT_MAT4,
-            PicoGL.FLOAT_VEC4
+            PicoGL.FLOAT_MAT4,	//viewmat
+            PicoGL.FLOAT_MAT4,	//modelmat
+            PicoGL.FLOAT_VEC4	//highlight color
         ]).set(2, unhighlightColor),
         mainDrawCall: null,
         pickingDrawCall: null
-    }
-];
+    };
+
+
+
+
+
+
+
+
 
 Promise.all([
 
@@ -298,30 +348,43 @@ Promise.all([
 
 ]).then(([
 
-    [, pickingProgram, mainProgram],
-    [image]
+    [pickingProgram, mainProgram, rippleProgram],
+    //[image]
 
 ]) => {
-
+	/*
     let texture = app.createTexture2D(image, { 
         flipY: true,
         maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
     });
+ 	*/
 
-    for (let i = 0, len = boxes.length; i < len; ++i) {
+ 	//Update player
 
-        boxes[i].pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
-        .uniform("uPickColor", boxes[i].pickColor);
+ 	//Set click info if necessary
 
-        boxes[i].mainDrawCall = app.createDrawCall(mainProgram, boxArray)
-        .uniformBlock("SceneUniforms", sceneUniforms)
-        .uniformBlock("FrameUniforms", boxes[i].frameUniforms)
-        .texture("uTextureMap", texture);
-    }
+ 	//run shell shader
 
-    // MOUSE HANDLER FOR PICKING
-    let mouseX = 0;
-    let mouseY = 0;
+
+
+    box.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
+    .uniform("uPickColor", boxes[i].pickColor);
+
+    box.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
+    .uniformBlock("SceneUniforms", sceneUniforms)
+    .uniformBlock("FrameUniforms", boxes[i].frameUniforms)
+    .texture("uTextureMap", texture);
+
+
+
+
+    rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
+    .uniformBlock("ClickData", clickData)
+    .uniformBlock("FrameUniforms", shellFrameUniforms)
+
+
+
+
     let picked = false;
     let pickedColor = new Uint8Array(4);
 
@@ -332,7 +395,58 @@ Promise.all([
         picked = true;
     });
 
-    function draw() {
+
+    var playerView;
+
+
+    function updateWorld() {
+
+    	if (cont == 0){
+        	return;
+    	}
+
+    	if (keyMap.get(65)){
+        	console.log("to the left...");
+        	player.move(0.1,0.0,0.0);
+    	}
+
+    	if (keyMap.get(68)){
+        	player.move(-0.1,0.0,0.0);
+   		}
+
+    
+    	if (!mouseRead){
+
+        	player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
+        	player.rotate(player.getUp(), -deltamX/100);
+
+        	mouseRead = true;
+    	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    	playerView = player.getView()
 
         if (timer.ready()) {
             utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
@@ -346,13 +460,23 @@ Promise.all([
             boxes[i].rotate[1] += 0.02;
 
             utils.xformMatrix(boxes[i].modelMatrix, boxes[i].translate, boxes[i].rotate, boxes[i].scale);
-            mat4.multiply(boxes[i].mvpMatrix, viewProjMatrix, boxes[i].modelMatrix);
+//            mat4.multiply(boxes[i].mvpMatrix, playerView, boxes[i].modelMatrix);
             
-            boxes[i].pickingDrawCall.uniform("uMVP", boxes[i].mvpMatrix);
+            boxes[i].pickingDrawCall.uniform("viewmat", playerView);
+            boxes[i].pickingDrawCall.uniform("frustmat", frust);
+            boxes[i].pickingDrawCall.uniform("modelmat", boxes[i].modelMatrix);
+
             
-            boxes[i].frameUniforms.set(0, boxes[i].mvpMatrix)
-            .set(1, boxes[i].modelMatrix);
+            boxes[i].frameUniforms.set(0, playerView)
+            .set(1, boxes[i].modelMatrix)
+            .update();
         }
+
+
+
+
+
+
 
         if (picked) {
 
@@ -370,11 +494,11 @@ Promise.all([
             
             if (pickedColor[0] === 255) {
 
-                boxes[0].frameUniforms.set(2, highlightColor);
-            } 
+            	console.log("clicked box...")
+                window.open('./thegoods/resume_ws.pdf');
+            }
             else {
-
-                boxes[0].frameUniforms.set(2, unhighlightColor);
+            	//ripple
             }
             
             picked = false;
@@ -384,15 +508,25 @@ Promise.all([
 
         // MAIN DRAW
         app.clear();
+
+        var time = performance.now()/1000;
         
         boxes[0].mainDrawCall.draw();
-        
+
+        shellFrameUniforms.set(0, 1.0)
+        .set(1, playerView)
+        .set(2, frust)
+        .set(3, time)
+        .update()
+
+
+        rippleDrawCall.draw();      
 
         timer.end();
 
-        requestAnimationFrame(draw);
+        requestAnimationFrame(updateWorld);
     }
-    requestAnimationFrame(draw);
+    requestAnimationFrame(updateWorld);
 });
 
 

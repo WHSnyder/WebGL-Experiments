@@ -22,7 +22,7 @@ function onReadOBJFile(fileString, fileName, gl, scale, reverse) {
   }
   gob = objDoc;
 
-  return null;
+  return gob;
 }
 
 
