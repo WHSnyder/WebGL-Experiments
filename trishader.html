@@ -3,29 +3,14 @@
 	<title>Triangle Test</title>
 	</head>
 
-	<script>
-
-		
-		
-		function updateFPS(timediff){
-
-			console.log(1000/timediff)
-		}
-
-
-
-	</script>
-
-
-
     <script src="./glMatrix/dist/gl-matrix.js" ></script>
     <script type="./glInit.js"></script>>
     <script src="./objparser.js"> </script>
-    <script src="./shaders.js"></script>
+    <script type="./shaders.js"></script>
     <script src="./controltest.js"></script>
 
 
-	<body onload="initShellDemo();">
+	<body onload="updateWorld();">
 
 	<canvas id="view" width="1200" height="700">
 		We don't serve your kind here.
@@ -33,7 +18,7 @@
 
 	<br/>
 
- 
+
 
 	</body>
 </html>

@@ -1,3 +1,22 @@
+function readOBJFile(fileName, gl, scale, reverse, gobPtr) {
+  
+  var request = new XMLHttpRequest();
+
+  request.onreadystatechange = function(gobPtr) {
+    
+    if (request.readyState === 4 && request.status !== 404) {
+      gobPtr.data = onReadOBJFile(request.responseText, fileName, gl, scale, reverse);
+    }
+  }
+
+  request.open('GET', fileName, false); // Create a request to acquire the file
+  request.send();                      // Send the request
+}
+
+
+
+
+
 var ripple_vs = `
 #define M_PI 3.1415926535897932384626433832795
 
@@ -273,7 +292,7 @@ let sceneUniforms = app.createUniformBuffer([
     PicoGL.FLOAT_VEC4,
     PicoGL.FLOAT_VEC4
 ]).set(0, lightPosition)
-.set(1, eyePosition)
+.set(1, player.eyePt)
 .update();
 
 
@@ -338,90 +357,75 @@ let box =
 
 
 
-
-
-Promise.all([
-
-    app.createPrograms([picking_vs, picking_fs], 
-    				   [main_vs, main_fs], 
-    				   [ripple_vs, ripple_fs])
-
-]).then(([
-
-    [pickingProgram, mainProgram, rippleProgram],
-    //[image]
-
-]) => {
-	/*
-    let texture = app.createTexture2D(image, { 
-        flipY: true,
-        maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
-    });
- 	*/
-
- 	//Update player
-
- 	//Set click info if necessary
-
- 	//run shell shader
-
-
-
-    box.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
-    .uniform("uPickColor", boxes[i].pickColor);
-
-    box.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
-    .uniformBlock("SceneUniforms", sceneUniforms)
-    .uniformBlock("FrameUniforms", boxes[i].frameUniforms)
-    .texture("uTextureMap", texture);
+[pickingProgram, mainProgram, rippleProgram] = app.createPrograms([picking_vs, picking_fs], 
+				   												  [main_vs, main_fs], 
+				   												  [ripple_vs, ripple_fs])
 
 
 
 
-    rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
-    .uniformBlock("ClickData", clickData)
-    .uniformBlock("FrameUniforms", shellFrameUniforms)
+box.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
+.uniform("uPickColor", boxes[i].pickColor);
+
+box.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
+.uniformBlock("SceneUniforms", sceneUniforms)
+.uniformBlock("FrameUniforms", boxes[i].frameUniforms)
+.texture("uTextureMap", texture);
 
 
 
 
-    let picked = false;
-    let pickedColor = new Uint8Array(4);
-
-    window.addEventListener("mouseup", function(event) {
-
-        mouseX = event.clientX;
-        mouseY = event.clientY;
-        picked = true;
-    });
+rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
+.uniformBlock("ClickData", clickData)
+.uniformBlock("FrameUniforms", shellFrameUniforms)
 
 
-    var playerView;
 
 
-    function updateWorld() {
+let picked = false;
+let pickedColor = new Uint8Array(4);
 
-    	if (cont == 0){
-        	return;
-    	}
+window.addEventListener("mouseup", function(event) {
 
-    	if (keyMap.get(65)){
-        	console.log("to the left...");
-        	player.move(0.1,0.0,0.0);
-    	}
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    picked = true;
+});
 
-    	if (keyMap.get(68)){
-        	player.move(-0.1,0.0,0.0);
-   		}
+window.addEventListener("keydown", keydown, false);
+window.addEventListener("keyup", keyup, false);
+window.addEventListener("mousemove", mouseHandler, false);
+window.addEventListener("click", updateClick, false);
 
-    
-    	if (!mouseRead){
 
-        	player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
-        	player.rotate(player.getUp(), -deltamX/100);
+var playerView;
 
-        	mouseRead = true;
-    	}
+
+function updateWorld() {
+
+	if (cont == 0){
+    	return;
+	}
+
+	if (keyMap.get(65)){
+    	console.log("to the left...");
+    	player.move(0.1,0.0,0.0);
+	}
+
+	if (keyMap.get(68)){
+    	player.move(-0.1,0.0,0.0);
+		}
+
+
+	if (!mouseRead){
+
+    	player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
+    	player.rotate(player.getUp(), -deltamX/100);
+
+    	mouseRead = true;
+	}
+
+	playerView = player.getView()
 
 
 
@@ -431,6 +435,29 @@ Promise.all([
 
 
 
+    if (timer.ready()) {
+        utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
+    }
+
+    timer.start();
+
+    for (let i = 0, len = boxes.length; i < len; ++i) {
+
+        boxes[i].rotate[0] += 0.01;
+        boxes[i].rotate[1] += 0.02;
+
+        utils.xformMatrix(boxes[i].modelMatrix, boxes[i].translate, boxes[i].rotate, boxes[i].scale);
+//            mat4.multiply(boxes[i].mvpMatrix, playerView, boxes[i].modelMatrix);
+        
+        boxes[i].pickingDrawCall.uniform("viewmat", playerView);
+        boxes[i].pickingDrawCall.uniform("frustmat", frust);
+        boxes[i].pickingDrawCall.uniform("modelmat", boxes[i].modelMatrix);
+
+        
+        boxes[i].frameUniforms.set(0, playerView)
+        .set(1, boxes[i].modelMatrix)
+        .update();
+    }
 
 
 
@@ -438,96 +465,55 @@ Promise.all([
 
 
 
+    if (picked) {
 
-
-
-
-
-
-
-
-    	playerView = player.getView()
-
-        if (timer.ready()) {
-            utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
-        }
-
-        timer.start();
+        // DRAW TO PICKING BUFFER
+        app.drawFramebuffer(pickingBuffer).clear();
 
         for (let i = 0, len = boxes.length; i < len; ++i) {
 
-            boxes[i].rotate[0] += 0.01;
-            boxes[i].rotate[1] += 0.02;
-
-            utils.xformMatrix(boxes[i].modelMatrix, boxes[i].translate, boxes[i].rotate, boxes[i].scale);
-//            mat4.multiply(boxes[i].mvpMatrix, playerView, boxes[i].modelMatrix);
-            
-            boxes[i].pickingDrawCall.uniform("viewmat", playerView);
-            boxes[i].pickingDrawCall.uniform("frustmat", frust);
-            boxes[i].pickingDrawCall.uniform("modelmat", boxes[i].modelMatrix);
-
-            
-            boxes[i].frameUniforms.set(0, playerView)
-            .set(1, boxes[i].modelMatrix)
-            .update();
+            boxes[i].pickingDrawCall.draw();
         }
 
-
-
-
-
-
-
-        if (picked) {
-
-            // DRAW TO PICKING BUFFER
-            app.drawFramebuffer(pickingBuffer).clear();
-
-            for (let i = 0, len = boxes.length; i < len; ++i) {
-
-                boxes[i].pickingDrawCall.draw();
-            }
-
-            app.defaultDrawFramebuffer()
-            .readFramebuffer(pickingBuffer)
-            .readPixel(mouseX, canvas.height - mouseY, pickedColor);
-            
-            if (pickedColor[0] === 255) {
-
-            	console.log("clicked box...")
-                window.open('./thegoods/resume_ws.pdf');
-            }
-            else {
-            	//ripple
-            }
-            
-            picked = false;
-        }
-
-        boxes[0].frameUniforms.update();
-
-        // MAIN DRAW
-        app.clear();
-
-        var time = performance.now()/1000;
+        app.defaultDrawFramebuffer()
+        .readFramebuffer(pickingBuffer)
+        .readPixel(mouseX, canvas.height - mouseY, pickedColor);
         
-        boxes[0].mainDrawCall.draw();
+        if (pickedColor[0] === 255) {
 
-        shellFrameUniforms.set(0, 1.0)
-        .set(1, playerView)
-        .set(2, frust)
-        .set(3, time)
-        .update()
-
-
-        rippleDrawCall.draw();      
-
-        timer.end();
-
-        requestAnimationFrame(updateWorld);
+        	console.log("clicked box...")
+            window.open('./thegoods/resume_ws.pdf');
+        }
+        else {
+        	//ripple
+        }
+        
+        picked = false;
     }
+
+    boxes[0].frameUniforms.update();
+
+    // MAIN DRAW
+    app.clear();
+
+    var time = performance.now()/1000;
+    
+    boxes[0].mainDrawCall.draw();
+
+    shellFrameUniforms.set(0, 1.0)
+    .set(1, playerView)
+    .set(2, frust)
+    .set(3, time)
+    .update()
+
+
+    rippleDrawCall.draw();      
+
+    timer.end();
+
     requestAnimationFrame(updateWorld);
-});
+}
+
 
 
 
