@@ -1,20 +1,10 @@
-var mat4 = glMatrix.mat4;
-var vec3 = glMatrix.vec3;
-var quat = glMatrix.quat;
-
 var current_time = 0;
 
 
 
 
-var player = new Player();
 
 
-var frust = mat4.create();
-mat4.perspective(frust, Math.PI/2, 4/3, .1, null);
-
-
-var cont = 0;
 var dir = 0;
 
 var n = 0;
@@ -26,7 +16,6 @@ var clickpos = vec3.fromValues(0.0,0.0,6.7);
 
 
 var mouseInitialized = false;
-var mouseX, mouseY;
 var deltamX = 0, delatmY = 0;
 var mouseRead = false;
 
@@ -40,8 +29,6 @@ function updateClick(){
     clickData.set(0, clicktime)
 	.set(1, clickpos)
 	.update()
-
-    console.log("Click coords: " + clickpos + " Length: " + vec3.length(clickpos));
 }
 
 
@@ -103,6 +90,12 @@ function keyup(event) {
     }
 }
 
+window.addEventListener("mouseup", function(event) {
+
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    picked = true;
+});
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);

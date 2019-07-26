@@ -1,11 +1,15 @@
-function readOBJFile(fileName, gl, scale, reverse, gobPtr) {
+var shell;
+var proceed = 0; 
+
+function readOBJFile(fileName, scale, reverse) {
   
   var request = new XMLHttpRequest();
 
-  request.onreadystatechange = function(gobPtr) {
+  request.onreadystatechange = function() {
     
     if (request.readyState === 4 && request.status !== 404) {
-      gobPtr.data = onReadOBJFile(request.responseText, fileName, gl, scale, reverse);
+      shell = onReadOBJFile(request.responseText, fileName, scale, reverse);
+      proceed = 1;
     }
   }
 
@@ -17,10 +21,12 @@ function readOBJFile(fileName, gl, scale, reverse, gobPtr) {
 
 
 
-var ripple_vs = `
+var ripple_vs = `#version 300 es
 #define M_PI 3.1415926535897932384626433832795
 
-precision mediump float;
+precision highp float;
+
+layout(std140, column_major) uniform;
 
 layout(location=0) in vec3 vertpos;
 layout(location=1) in vec3 normal;
@@ -52,6 +58,9 @@ void main(){
 
     float speed = 4.0;
     float dietime = 10.0;
+
+    vec3 vertposnormed = normalize(vertpos);
+
 
     float timediff = timevar - clicktime;
 
@@ -96,13 +105,15 @@ void main(){
 
 
 
-var ripple_fs = `
-precision mediump float;
+var ripple_fs = `#version 300 es
+precision highp float;
 
 
-varying vec3 color;
+in vec3 color;
 
-void main(){
+out vec4 fragColor;
+
+void main() {
 
 	/*vec2 adjusted = vec2(mousepos.x - 10.0, 700.0-1.0 * mousepos.y);
 
@@ -114,13 +125,11 @@ void main(){
         addit = ((50.0 - dist)/50.0) * vec4(0.2,0.2,0.2,0.0);
     }*/
 
-    gl_FragColor = vec4(color, 1.0);// + addit;
+    fragColor = vec4(color, 1.0);// + addit;
 }`;
 
 
-var picking_vs = `
-    
-#version 300 es
+var picking_vs = `#version 300 es
 
 layout(location=0) in vec4 aPosition;
         
@@ -133,9 +142,8 @@ void main() {
 }`;
 
 
-var picking_fs =  `
+var picking_fs =  `#version 300 es
 
-#version 300 es
 precision highp float;
 
 uniform vec3 uPickColor;
@@ -146,16 +154,16 @@ void main() {
  }`;    
 
 
-var main_vs = `
-
-#version 300 es
+var main_vs = `#version 300 es
         
-layout(std140, column_major) uniform;
+uniform mat4 frustmat;
+
 layout(location=0) in vec4 aPosition;
 layout(location=1) in vec3 aNormal;
 layout(location=2) in vec2 aTexCoord;
 
-uniform mat frustmat;
+layout(std140, column_major)
+
 
 uniform FrameUniforms {
 
@@ -177,12 +185,9 @@ void main() {
 }`;
 
 
-var main_fs = `
-
-#version 300 es
+var main_fs = `#version 300 es
 
 precision highp float;
-layout(std140, column_major) uniform;
 
 uniform SceneUniforms {
 	vec4 uLightPosition;
@@ -196,7 +201,7 @@ uniform FrameUniforms {
 	vec4 uHighlightColor;
 };
         
-uniform sampler2D uTextureMap;
+//uniform sampler2D uTextureMap;
 
 in vec3 vPosition;
 in vec3 vNormal;
@@ -205,71 +210,83 @@ out vec4 fragColor;
 
 void main() {
 
-	vec4 baseColor = vec3(1.0,1.0,0.0,1.0);//texture(uTextureMap, vTexCoord);
-	vec3 normal = normalize(vNormal);
-	vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
-	vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
-	vec3 reflectionDirection = reflect(-lightDirection, normal);
-	float nDotL = max(dot(lightDirection, normal), 0.0);
-	float diffuse = nDotL;
-	float ambient = 0.1;
-	float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
-	fragColor = vec4(uHighlightColor.rgb * (ambient + diffuse + specular) * baseColor.rgb, baseColor.a);
+	vec4 baseColor = vec4(1.0,1.0,1.0,1.0);//texture(uTextureMap, vTexCoord);
+	//vec3 normal = normalize(vNormal);
+	//vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
+	//vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
+	//vec3 reflectionDirection = reflect(-lightDirection, normal);
+	//float nDotL = max(dot(lightDirection, normal), 0.0);
+	//float diffuse = nDotL;
+	//float ambient = 0.1;
+	//float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
+	fragColor = baseColor;//vec4(uHighlightColor.rgb * (ambient + diffuse + specular) * baseColor.rgb, baseColor.a);
 }`;
 
 
+//NECESSARY VARS
+var frust = mat4.create();
+mat4.perspective(frust, Math.PI/2, 4/3, .1, null);
+var cont = 0;
 
-import { PicoGL } from "./picogl/picogl.min.js";
+var mouseX, mouseY;
+
+
+
+
+//import { PicoGL } from "./picogl/picogl.min.js";
+
 
 utils.addTimerElement();
 
-let canvas = document.getElementById("view");
+var canvas = document.getElementById("view");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 
-let app = PicoGL.createApp(canvas)
+var app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
 .depthTest()
 .cullBackfaces();
 
 
-let timer = app.createTimer();
+var timer = app.createTimer();
 
 
-
-let pickColorTarget = app.createTexture2D(app.width, app.height);
-let pickDepthTarget = app.createRenderbuffer(app.width, app.height, PicoGL.DEPTH_COMPONENT16);
-let pickingBuffer = app.createFramebuffer().colorTarget(0, pickColorTarget).depthTarget(pickDepthTarget);
-
+var pickColorTarget = app.createTexture2D(app.width, app.height);
+var pickDepthTarget = app.createRenderbuffer(app.width, app.height, PicoGL.DEPTH_COMPONENT16);
+var pickingBuffer = app.createFramebuffer().colorTarget(0, pickColorTarget).depthTarget(pickDepthTarget);
 
 
 
 // GEOMETRY
-let box = utils.createBox({dimensions: [1.0, 1.0, 1.0]});
+var box = utils.createBox({dimensions: [1.0, 1.0, 1.0]});
 
-let positions = app.createVertexBuffer(PicoGL.FLOAT, 3, box.positions);
-let uv = app.createVertexBuffer(PicoGL.FLOAT, 2, box.uvs);
-let normals = app.createVertexBuffer(PicoGL.FLOAT, 3, box.normals);
+var positions = app.createVertexBuffer(PicoGL.FLOAT, 3, box.positions);
+var uv = app.createVertexBuffer(PicoGL.FLOAT, 2, box.uvs);
+var normals = app.createVertexBuffer(PicoGL.FLOAT, 3, box.normals);
 
-let boxArray = app.createVertexArray()
+
+var boxArray = app.createVertexArray()
 .vertexAttributeBuffer(0, positions)
-.vertexAttributeBuffer(1, normals)
-.vertexAttributeBuffer(2, uv);
+.vertexAttributeBuffer(1, normals);
+//.vertexAttributeBuffer(2, uv);
 
 
 var shell_verts, shell_norms;
-var shell = {data: null};
 
-readOBJFile("./models/sphereshell.obj", gl, 4, 0, shell)
+readOBJFile("./models/sphereshell.obj", 4, 0)
 
-var shelldata = shell.data.getDrawingInfo()
+while (proceed == 0){
+    //
+}
 
-let shell_positions = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.vertices);
-let shell_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.normals);
+var shelldata = shell.getDrawingInfo()
 
-let shellArray = app.createVertexArray()
+var shell_positions = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.vertices);
+var shell_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.normals);
+
+var shellArray = app.createVertexArray()
 .vertexAttributeBuffer(0, shell_positions)
 .vertexAttributeBuffer(1, shell_normals)
 
@@ -278,17 +295,14 @@ let shellArray = app.createVertexArray()
 
 
 
-
-
-
-let lightPosition = vec3.fromValues(1, 1, 0.5);  
-let highlightColor = vec3.fromValues(1.5, 1.5, 0.5);
-let unhighlightColor = vec3.fromValues(1.0, 1.0, 1.0);
+var lightPosition = vec3.fromValues(1, 1, 0.5);  
+var highlightColor = vec3.fromValues(1.5, 1.5, 0.5);
+var unhighlightColor = vec3.fromValues(1.0, 1.0, 1.0);
 
 
 
 // UNIFORM BUFFERS
-let sceneUniforms = app.createUniformBuffer([
+var sceneUniforms = app.createUniformBuffer([
     PicoGL.FLOAT_VEC4,
     PicoGL.FLOAT_VEC4
 ]).set(0, lightPosition)
@@ -297,17 +311,17 @@ let sceneUniforms = app.createUniformBuffer([
 
 
 
-let clickData = app.createUniformBuffer([
+var clickData = app.createUniformBuffer([
 
 	PicoGL.FLOAT,//clicktime
-	PicoGL.FLOAT_VEC2 //clickpos
+	PicoGL.FLOAT_VEC3 //clickpos
 ]).set(0, 0.0)
-.set(1, vec2.create())
+.set(1, vec3.create())
 .update()
 
 
 
-let shellFrameUniforms = app.createUniformBuffer([
+var shellFrameUniforms = app.createUniformBuffer([
 
 	PicoGL.FLOAT, //flag
 	PicoGL.FLOAT_MAT4, //viewmat
@@ -316,7 +330,7 @@ let shellFrameUniforms = app.createUniformBuffer([
 	PicoGL.FLOAT //timevar
 ]).set(0, 1.0)
 .set(1, player.getView())
-.set(2, frustmat)
+.set(2, frust)
 .set(3, 0.0)
 .update()
 
@@ -325,77 +339,61 @@ let shellFrameUniforms = app.createUniformBuffer([
 
 window.onresize = function() {
 
-    app.resize(window.innerWidth, window.innerHeight);
-    pickingBuffer.resize();
-    mat4.perspective(frustmat, Math.PI / 2, app.width / app.height, 0.1, null);
+    //app.resize(window.innerWidth, window.innerHeight);
+    //pickingBuffer.resize();
+    //mat4.perspective(frustmat, Math.PI / 2, app.width / app.height, 0.1, null);
     //mat4.multiply(viewProjMatrix, frustmat, viewMatrix);
 };
 
 
 
 // OBJECT DESCRIPTIONS
-let box = 
-    {
-        translate: [0, 0, 0],
-        rotate: [0, 0, 0],
-        scale: [1, 1, 1],
-        mvpMatrix: mat4.create(),
-        modelMatrix: mat4.create(),
-        pickColor: vec3.fromValues(1.0, 0.0, 0.0),
-        frameUniforms: app.createUniformBuffer([
-            PicoGL.FLOAT_MAT4,	//viewmat
-            PicoGL.FLOAT_MAT4,	//modelmat
-            PicoGL.FLOAT_VEC4	//highlight color
-        ]).set(2, unhighlightColor),
-        mainDrawCall: null,
-        pickingDrawCall: null
-    };
+var boxData = 
+{
+    translate: [0, 0, 0],
+    rotate: [0, 0, 0],
+    scale: [1, 1, 1],
+    mvpMatrix: mat4.create(),
+    modelMatrix: mat4.create(),
+    pickColor: vec3.fromValues(1.0, 0.0, 0.0),
+    frameUniforms: app.createUniformBuffer([
+        PicoGL.FLOAT_MAT4,	//viewmat
+        PicoGL.FLOAT_MAT4,	//modelmat
+        PicoGL.FLOAT_VEC4	//highlight color
+    ]).set(2, unhighlightColor),
+    mainDrawCall: null,
+    pickingDrawCall: null
+};
 
 
 
+var pickingProgram = app.createProgram(picking_vs, picking_fs);
+var mainProgram = app.createProgram(main_vs, main_fs);
+var rippleProgram = app.createProgram(ripple_vs, ripple_fs);
 
 
+boxData.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
+.uniform("uPickColor", boxData.pickColor);
 
-
-[pickingProgram, mainProgram, rippleProgram] = app.createPrograms([picking_vs, picking_fs], 
-				   												  [main_vs, main_fs], 
-				   												  [ripple_vs, ripple_fs])
-
-
-
-
-box.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
-.uniform("uPickColor", boxes[i].pickColor);
-
-box.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
+boxData.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
 .uniformBlock("SceneUniforms", sceneUniforms)
-.uniformBlock("FrameUniforms", boxes[i].frameUniforms)
-.texture("uTextureMap", texture);
+.uniformBlock("FrameUniforms", boxData.frameUniforms)
 
-
-
-
-rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
+var rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
 .uniformBlock("ClickData", clickData)
 .uniformBlock("FrameUniforms", shellFrameUniforms)
 
+setTimeout(function(){
+    //do what you need here
+}, 2000);
+
+boxData.mainDrawCall.uniform("frustmat", frust);
 
 
 
-let picked = false;
-let pickedColor = new Uint8Array(4);
+var picked = false;
+var pickedColor = new Uint8Array(4);
 
-window.addEventListener("mouseup", function(event) {
-
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    picked = true;
-});
-
-window.addEventListener("keydown", keydown, false);
-window.addEventListener("keyup", keyup, false);
-window.addEventListener("mousemove", mouseHandler, false);
-window.addEventListener("click", updateClick, false);
 
 
 var playerView;
@@ -414,7 +412,7 @@ function updateWorld() {
 
 	if (keyMap.get(68)){
     	player.move(-0.1,0.0,0.0);
-		}
+	}
 
 
 	if (!mouseRead){
@@ -425,14 +423,8 @@ function updateWorld() {
     	mouseRead = true;
 	}
 
+
 	playerView = player.getView()
-
-
-
-
-
-
-
 
 
     if (timer.ready()) {
@@ -441,28 +433,20 @@ function updateWorld() {
 
     timer.start();
 
-    for (let i = 0, len = boxes.length; i < len; ++i) {
 
-        boxes[i].rotate[0] += 0.01;
-        boxes[i].rotate[1] += 0.02;
+    boxData.rotate[0] += 0.01;
+    boxData.rotate[1] += 0.02;
 
-        utils.xformMatrix(boxes[i].modelMatrix, boxes[i].translate, boxes[i].rotate, boxes[i].scale);
-//            mat4.multiply(boxes[i].mvpMatrix, playerView, boxes[i].modelMatrix);
-        
-        boxes[i].pickingDrawCall.uniform("viewmat", playerView);
-        boxes[i].pickingDrawCall.uniform("frustmat", frust);
-        boxes[i].pickingDrawCall.uniform("modelmat", boxes[i].modelMatrix);
+    utils.xformMatrix(boxData.modelMatrix, boxData.translate, boxData.rotate, boxData.scale);
+    
+    boxData.pickingDrawCall.uniform("viewmat", playerView);
+    boxData.pickingDrawCall.uniform("frustmat", frust);
+    boxData.pickingDrawCall.uniform("modelmat", boxData.modelMatrix);
 
-        
-        boxes[i].frameUniforms.set(0, playerView)
-        .set(1, boxes[i].modelMatrix)
-        .update();
-    }
-
-
-
-
-
+    boxData.frameUniforms.set(0, playerView)
+    .set(1, boxData.modelMatrix)
+    .set(2, vec4.fromValues(1.0,1.0,1.0,1.0))
+    .update();
 
 
     if (picked) {
@@ -470,15 +454,14 @@ function updateWorld() {
         // DRAW TO PICKING BUFFER
         app.drawFramebuffer(pickingBuffer).clear();
 
-        for (let i = 0, len = boxes.length; i < len; ++i) {
-
-            boxes[i].pickingDrawCall.draw();
-        }
-
+        boxData.pickingDrawCall.draw();
+        
         app.defaultDrawFramebuffer()
         .readFramebuffer(pickingBuffer)
         .readPixel(mouseX, canvas.height - mouseY, pickedColor);
         
+        app.clear();
+
         if (pickedColor[0] === 255) {
 
         	console.log("clicked box...")
@@ -491,14 +474,15 @@ function updateWorld() {
         picked = false;
     }
 
-    boxes[0].frameUniforms.update();
+
+    boxData.frameUniforms.update();
+
 
     // MAIN DRAW
-    app.clear();
 
     var time = performance.now()/1000;
     
-    boxes[0].mainDrawCall.draw();
+    
 
     shellFrameUniforms.set(0, 1.0)
     .set(1, playerView)
@@ -507,17 +491,12 @@ function updateWorld() {
     .update()
 
 
-    rippleDrawCall.draw();      
+    boxData.mainDrawCall.draw();
+
+    rippleDrawCall.draw();
+     
 
     timer.end();
 
     requestAnimationFrame(updateWorld);
 }
-
-
-
-
-
-
-
-
