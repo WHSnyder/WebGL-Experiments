@@ -21,15 +21,6 @@ var mouseRead = false;
 
 
 
-function updateClick(){
-
-    clicktime = performance.now()/1000;
-    vec3.add(clickpos, player.focusVec, player.eyePt);
-
-    clickData.set(0, clicktime)
-	.set(1, clickpos)
-	.update()
-}
 
 
 
@@ -70,7 +61,7 @@ function keydown(event) {
         cont = 1;
         console.log("pressed g...");
 
-        window.requestAnimationFrame(updateWorld);
+        //window.requestAnimationFrame(updateWorld);
     }
     else if (event.keyCode == 84){
         cont = 0;
@@ -90,14 +81,8 @@ function keyup(event) {
     }
 }
 
-window.addEventListener("mouseup", function(event) {
-
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    picked = true;
-});
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
 window.addEventListener("mousemove", mouseHandler, false);
-window.addEventListener("click", updateClick, false);
+//window.addEventListener("click", updateClick, false);

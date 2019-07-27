@@ -233,7 +233,6 @@ var mouseX, mouseY;
 
 
 
-//import { PicoGL } from "./picogl/picogl.min.js";
 
 
 utils.addTimerElement();
