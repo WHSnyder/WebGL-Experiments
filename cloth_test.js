@@ -18,8 +18,8 @@ var update_force_fs =
 
 precision highp float;
 
-#define GRAVITY vec3(0.0, -0.0003, 0.0)
-#define WIND vec3(0.0, 0.0, 0.00008)
+#define GRAVITY vec3(0.0, -0.00005, 0.0)
+#define WIND vec3(0.0, 0.0, 0.000008)
 #define DAMPING 0.99
 
 in vec2 vScreenUV;
@@ -79,6 +79,8 @@ layout(std140) uniform ConstraintUniforms {
 };
 
 uniform sampler2D uPositionBuffer;
+uniform float slice;
+
 
 out vec3 outPosition;
 
@@ -90,6 +92,8 @@ void main() {
     ivec2 dimensions = textureSize(uPositionBuffer, 0);
     ivec2 texelCoord = ivec2(vScreenUV * vec2(dimensions));
     vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
+    ivec2 maxTexelCoord = dimensions - 1;
+
     
     //---------------------------------------
 
@@ -101,8 +105,10 @@ void main() {
     
     bool otherPin = false;
 
-    
-    if (texelCoord != ivec2(0, 0) && texelCoord != ivec2(dimensions.x - 1, 0)) {
+    if (texelCoord != ivec2(0, 0) && 
+        texelCoord != ivec2(dimensions.x - 1, 0) &&
+        texelCoord != ivec2(0, maxTexelCoord.y) && 
+        texelCoord != ivec2(maxTexelCoord.x, maxTexelCoord.y)) {
         
         ivec2 otherCoord = texelCoord + uDir * neg;
         
@@ -111,7 +117,8 @@ void main() {
             otherPin = true;
         }
         
-        if (all(greaterThanEqual(otherCoord, ivec2(0, 0))) && all(lessThan(otherCoord, dimensions))) {
+        if (all(greaterThanEqual(otherCoord, ivec2(0, 0))) && all(lessThan(otherCoord, dimensions))
+            && !((otherCoord.y == dimensions.y/2 + 10 || otherCoord.y == dimensions.y/2 - 10) && slice > 0.0)){// && uModVal == 0 && uDir == ivec2(0,1))) {
             
             vec3 otherPosition = texelFetch(uPositionBuffer, otherCoord, 0).xyz;
             
@@ -123,6 +130,7 @@ void main() {
             }
         }
     }
+    
     
     outPosition = position;
 }`;
@@ -182,7 +190,55 @@ void main() {
     }
     
     outNormal = normalize(normal);
-}`;    
+}`;
+
+
+
+var update_cut_fs = 
+`#version 300 es   
+
+precision highp float;
+
+in vec2 vScreenUV;
+
+layout(std140, column_major) uniform  SceneUniforms {
+    
+    mat4 viewProj;
+    vec4 lightPosition;
+};
+
+uniform sampler2D uPositionBuffer;
+
+uniform vec2 cutUV[10] 
+
+layout(location=0) out vec3 outPosition;
+
+
+
+void main() {
+
+    ivec2 dimensions = textureSize(uPositionBuffer, 0);
+    ivec2 maxTexelCoord = dimensions - 1;
+    ivec2 texelCoord = ivec2(vScreenUV * vec2(dimensions));
+    
+    vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
+    
+    vec2 screenPos = (viewproj * vec4(position,1.0)).xy;
+
+    int i = 0;
+
+    position = vec3(1.0,1.0,1.0);
+
+    for (i = 0; i < 10; i++){
+
+        if (length(screenPos - cutUV[i]) < 1.0) {
+            position = vec3(0.0,0.0,0.0);
+        }
+    }    
+    
+    outPosition = position;
+}`;
+
    
 
 
@@ -195,7 +251,9 @@ layout(location=1) in vec2 aUV;
 uniform sampler2D uPositionBuffer;
 uniform sampler2D uNormalBuffer;
 
-layout(std140, column_major) uniform  SceneUniforms {
+uniform float slice;
+
+layout(std140, column_major) uniform SceneUniforms {
     
     mat4 viewProj;
     vec4 lightPosition;
@@ -204,11 +262,21 @@ layout(std140, column_major) uniform  SceneUniforms {
 out vec3 vPosition;
 out vec2 vUV;
 out vec3 vNormal;
+out float cut;
 
 
 void main() {
 
     vec3 position = texelFetch(uPositionBuffer, aTexelCoord, 0).xyz;
+    
+    ivec2 dimensions = textureSize(uPositionBuffer, 0);
+
+    cut = 1.0;
+    
+    if ((aTexelCoord.y == dimensions.y/2 + 10 || aTexelCoord.y == dimensions.y/2 - 10) && (slice > 0.0)){
+        
+        cut = 0.0;
+    }
 
     vPosition = position;
 
@@ -237,10 +305,16 @@ uniform sampler2D uDiffuse;
 in vec3 vPosition;
 in vec2 vUV;
 in vec3 vNormal;
+in float cut;
 
 out vec4 fragColor;
 
 void main() {
+
+    if (cut < 1.0) {
+        discard;
+    }
+    
     
     vec3 color = texture(uDiffuse, vUV).rgb;
     vec3 normal = normalize(vNormal);
@@ -284,6 +358,10 @@ const BALL_RANGE = 0.9;
 
 // Generic quad vertex shader
 let quadShader = app.createShader(PicoGL.VERTEX_SHADER, quad_vs);
+
+let constraintShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_constraint_fs);
+let normalShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_normal_fs);
+let forceShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_force_fs);
 
 // Update wind and gravity forces
 //let updateForceFsSource = document.getElementById("update-force-fs").text.trim();
@@ -432,6 +510,11 @@ let indices = app.createIndexBuffer(PicoGL.UNSIGNED_SHORT, 3, indexData);
 
 console.log(indexData);
 
+console.log(dataTextureIndex);
+
+console.log(indices);
+
+
 
 let clothArray = app.createVertexArray()
 .vertexAttributeBuffer(0, dataIndex)
@@ -533,7 +616,7 @@ mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 3.0
 let viewMatrix = mat4.create();
 
 let eyePosition = vec3.fromValues(0.5, 0.7, 1.2);
-mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 0.1, 0), vec3.fromValues(0, 1, 0));
+mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 1.0, 0), vec3.fromValues(0, 1, 0));
 
 let viewProjMatrix = mat4.create();
 mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
@@ -553,17 +636,18 @@ let sceneUniformBuffer = app.createUniformBuffer([
 let targetZ = null;
 let targetY = null;
 
+var cut = -1.0;
 
 Promise.all([
 
     app.createPrograms(
-        [quadShader, update_force_fs],
-        [quadShader, update_constraint_fs],
-        [quadShader, update_normal_fs],
+        [quadShader, forceShader],
+        [quadShader, constraintShader],
+        [quadShader, normalShader],
         [cloth_vs, phongShader]
     ),
 
-    utils.loadImages(["./models/webgl-logo.png"])
+    utils.loadImages(["./models/dune.jpg"])
 
 ]).then(([
 
@@ -639,6 +723,7 @@ Promise.all([
         
         timer.start();
 
+
         updateForceDrawCall.texture("uPositionBuffer", positionTextureA);
         updateForceDrawCall.texture("uOldPositionBuffer", oldPositionTextureA);
         
@@ -655,28 +740,44 @@ Promise.all([
             app.drawFramebuffer(updateFramebuffer);
             
             updateFramebuffer.colorTarget(0, positionTextureA);
-            updateHorizontal1DrawCall.texture("uPositionBuffer", positionTextureB).draw();
+            updateHorizontal1DrawCall.texture("uPositionBuffer", positionTextureB)
+            .uniform("slice",1.0)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
-            updateHorizontal2DrawCall.texture("uPositionBuffer", positionTextureA).draw();
+            updateHorizontal2DrawCall.texture("uPositionBuffer", positionTextureA)
+            .uniform("slice",cut)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
-            updateVertical1DrawCall.texture("uPositionBuffer", positionTextureB).draw();
+            updateVertical1DrawCall.texture("uPositionBuffer", positionTextureB)
+            .uniform("slice",cut)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
-            updateVertical2DrawCall.texture("uPositionBuffer", positionTextureA).draw();
+            updateVertical2DrawCall.texture("uPositionBuffer", positionTextureA)
+            .uniform("slice",cut)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
-            updateShear1DrawCall.texture("uPositionBuffer", positionTextureB).draw();
+            updateShear1DrawCall.texture("uPositionBuffer", positionTextureB)
+            .uniform("slice",cut)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
-            updateShear2DrawCall.texture("uPositionBuffer", positionTextureA).draw();
+            updateShear2DrawCall.texture("uPositionBuffer", positionTextureA)
+            .uniform("slice",cut)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
-            updateShear3DrawCall.texture("uPositionBuffer", positionTextureB).draw();
+            updateShear3DrawCall.texture("uPositionBuffer", positionTextureB)
+            .uniform("slice",cut)
+            .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
-            updateShear4DrawCall.texture("uPositionBuffer", positionTextureA).draw();   
+            updateShear4DrawCall.texture("uPositionBuffer", positionTextureA)
+            .uniform("slice",cut)
+            .draw();   
         }
 
 
@@ -684,7 +785,8 @@ Promise.all([
         updateFramebuffer.colorTarget(0, normalTexture);
         updateNormalDrawCall.texture("uPositionBuffer", positionTextureA).draw();
         
-        clothDrawCall.texture("uPositionBuffer", positionTextureA);
+        clothDrawCall.texture("uPositionBuffer", positionTextureA)
+        .uniform("slice",cut);
 
         app.defaultViewport().defaultDrawFramebuffer().clear();
         

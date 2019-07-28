@@ -68,7 +68,7 @@ function keydown(event) {
         keyMap.set(71, false);
     }
     else if (event.keyCode == 87){
-        //updatefps = 1;
+        cut = 1.0;
     }
     keyMap.set(event.keyCode, true);
 }
