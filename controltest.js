@@ -26,19 +26,19 @@ var lastX = 0,lastY = 0;
 
 function trackMovement(e){
 
-    if (down && !up){
-        
-        //while (locked){
-            //do nothing
-        //}
-
-        locked = true;
-
-        if (lastX != e.pageX){
-            queue.push(vec2.fromValues(e.pageX, e.pageY)) 
+    if (down){
+        if (reset){
+            mouseData[0] = vec2.fromValues(e.pageX, e.pageY);
+            mouseData[1] = vec2.fromValues(e.pageX, e.pageY);
+            reset = false;
         }
-
-        locked = false;       
+        else if (mouseData[0] == null){
+            mouseData[0] = vec2.clone(mouseData[1]);
+            mouseData[1] = vec2.fromValues(e.pageX, e.pageY);
+        }
+        else {
+            mouseData[1] = vec2.fromValues(e.pageX, e.pageY)
+        }
     }
 }
 
@@ -142,8 +142,8 @@ window.addEventListener("mouseup", function(event) {
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
 window.addEventListener("mousemove", trackMovement, false);
-window.addEventListener("mousedown", function(){down = true; up = false}, false);
-window.addEventListener("mouseup", function(){up = true; down = false}, false);
+window.addEventListener("mousedown", function(){down = true}, false);
+window.addEventListener("mouseup", function(){down = false; reset = true;}, false);
 window.onresize = updateRect;
 
 //window.addEventListener("click", updateClick, false);

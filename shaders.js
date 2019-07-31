@@ -1,3 +1,7 @@
+var objects = {};
+
+
+
 var shell;
 var proceed = 0; 
 

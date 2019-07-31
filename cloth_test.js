@@ -19,7 +19,7 @@ var update_force_fs =
 precision highp float;
 
 #define GRAVITY vec3(0.0, -0.00005, 0.0)
-#define WIND vec3(0.0, 0.0, 0.00008)
+#define WIND vec3(0.0, 0.0, 0.0000)
 #define DAMPING 0.99
 
 in vec2 vScreenUV;
@@ -27,11 +27,10 @@ in vec2 vScreenUV;
 uniform sampler2D uPositionBuffer;
 uniform sampler2D uNormalBuffer;
 uniform sampler2D uOldPositionBuffer;
-uniform sampler2D uCutBuffer;
-
 
 layout(location=0) out vec3 outPosition;
 layout(location=1) out vec3 outOldPosition;
+
 
 
 void main() {
@@ -46,6 +45,7 @@ void main() {
     vec3 oldPosition = texelFetch(uOldPositionBuffer, texelCoord, 0).xyz;
 
     vec3 temp = position;
+
     
     if (texelCoord != ivec2(0, 0) && 
         texelCoord != ivec2(maxTexelCoord.x, 0) &&
@@ -217,7 +217,9 @@ uniform WindowUniforms {
 
 uniform sampler2D uPositionBuffer;
 
-uniform vec2 point;
+uniform vec2 cutStart;
+uniform vec2 cutEnd;
+
 
 
 layout(location=0) out vec3 mark;
@@ -234,9 +236,16 @@ void main() {
     screenPos.x = (screenPos.x/2.0 + .5) * uWidth;
     screenPos.y = (screenPos.y/-2.0 + .5) * uHeight; 
 
-    float diff = length(screenPos - point);    
+    vec2 cutVector = cutEnd - cutStart;
+    vec2 screenVector = screenPos - cutStart;
 
-    if (diff < 5.0){
+    float cutLength = length(cutVector);
+    float screenLength = length(screenVector);
+
+    float between = dot(cutVector, screenVector)/(cutLength * screenLength);
+       
+
+    if (1.0 - between <= .1 && screenLength < cutLength){
         mark = vec3(1.0,0.0,0.0);
     }
     else {
@@ -330,9 +339,8 @@ void main() {
     }
 }`;
 
-var locked = false;
-var queue = [];
-
+var mouseData = [null,null];
+var reset = true;
 
 
       
@@ -671,7 +679,7 @@ mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 3.0
 
 let viewMatrix = mat4.create();
 
-let eyePosition = vec3.fromValues(0.5, 0.7, 1.2);
+let eyePosition = vec3.fromValues(0.0, 0.0, 1.2);
 mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 1.0, 0), vec3.fromValues(0, 1, 0));
 
 let viewProjMatrix = mat4.create();
@@ -727,6 +735,7 @@ Promise.all([
     let updateForceDrawCall = app.createDrawCall(updateForceProgram, quadArray)
     .texture("uPositionBuffer", positionTextureA)
     .texture("uNormalBuffer", normalTexture);
+
 
 
 
@@ -813,51 +822,53 @@ Promise.all([
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateHorizontal1DrawCall.texture("uPositionBuffer", positionTextureB)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateHorizontal2DrawCall.texture("uPositionBuffer", positionTextureA)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateVertical1DrawCall.texture("uPositionBuffer", positionTextureB)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateVertical2DrawCall.texture("uPositionBuffer", positionTextureA)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateShear1DrawCall.texture("uPositionBuffer", positionTextureB)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateShear2DrawCall.texture("uPositionBuffer", positionTextureA)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();    
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateShear3DrawCall.texture("uPositionBuffer", positionTextureB)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateShear4DrawCall.texture("uPositionBuffer", positionTextureA)
-            .texture("uCutBuffer", cutTexture)
+            //.texture("uCutBuffer", cutTexture)
             .draw();   
         }
 
         
-        locked = true;
+       
 
-        if (queue.length > 0){
+        if (mouseData[0] != null){
 
-            cutDrawCall.uniform("point", queue.shift())
+            cutDrawCall.uniform("cutStart", mouseData[0])
+            cutDrawCall.uniform("cutEnd", mouseData[1])
+
             cutDrawCall.texture("uPositionBuffer", positionTextureA);
 
             locked = false;
@@ -868,9 +879,10 @@ Promise.all([
 
             app.drawFramebuffer(cutFramebuffer);
             cutDrawCall.draw();
+
+            mouseData[0] = null;
         }
 
-        locked = false;
 
 
         updateFramebuffer.colorTarget(0, normalTexture);
@@ -880,6 +892,7 @@ Promise.all([
         
         clothDrawCall.texture("uPositionBuffer", positionTextureA)
         .texture("uCutBuffer", cutTexture)
+
 
         app.defaultViewport().defaultDrawFramebuffer().clear();
         
