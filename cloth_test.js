@@ -217,8 +217,7 @@ uniform WindowUniforms {
 
 uniform sampler2D uPositionBuffer;
 
-uniform vec2 seg1;
-uniform vec2 seg2;
+uniform vec2 point;
 
 
 layout(location=0) out vec3 mark;
@@ -234,12 +233,8 @@ void main() {
 
     screenPos.x = (screenPos.x/2.0 + .5) * uWidth;
     screenPos.y = (screenPos.y/-2.0 + .5) * uHeight; 
- 
-    //float slope = (seg2.y - seg1.y)/(seg2.x - seg1.x);
-    //float slopeFrag = (screenPos.y - seg1.y)/(screenPos.x - seg1.x);
 
-    float diff = length(screenPos - (seg1 + seg2)/2.0);    //abs(slope - slopeFrag);
-
+    float diff = length(screenPos - point);    
 
     if (diff < 5.0){
         mark = vec3(1.0,0.0,0.0);
@@ -862,7 +857,7 @@ Promise.all([
 
         if (queue.length > 0){
 
-            cutDrawCall.uniform("seg1", queue.shift())
+            cutDrawCall.uniform("point", queue.shift())
             cutDrawCall.texture("uPositionBuffer", positionTextureA);
 
             locked = false;
