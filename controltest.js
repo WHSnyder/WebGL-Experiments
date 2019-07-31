@@ -20,8 +20,48 @@ var deltamX = 0, delatmY = 0;
 var mouseRead = false;
 
 
+var down = false,up = false;
 
 
+
+function trackMovement(e){
+
+    if (down && !up){
+        
+        //while (locked){
+            //do nothing
+        //}
+
+        locked = true;
+
+        queue.push(vec2.fromValues(e.pageX, e.pageY)) 
+
+        locked = false;       
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+function updateClick(){
+
+    clicktime = performance.now()/1000;
+    vec3.add(clickpos, player.focusVec, player.eyePt);
+
+    clickData.set(0, clicktime)
+	.set(1, clickpos)
+	.update()
+}
+*/
 
 
 function mouseHandler(e){
@@ -43,7 +83,15 @@ function mouseHandler(e){
 }
 
 
+function updateRect(){
+    rect = canvas.getBoundingClientRect();
 
+    windowUniforms.set(0, rect.width)
+    .set(1, rect.height)
+    .set(2, rect.left)
+    .set(3, rect.bottom)
+    .update();
+}
 
 
 var keyMap = new Map();
@@ -61,14 +109,15 @@ function keydown(event) {
         cont = 1;
         console.log("pressed g...");
 
-        //window.requestAnimationFrame(updateWorld);
+        window.requestAnimationFrame(updateWorld);
     }
     else if (event.keyCode == 84){
         cont = 0;
         keyMap.set(71, false);
     }
     else if (event.keyCode == 87){
-        cut = 1.0;
+        //updatefps = 1;
+        cut = true;
     }
     keyMap.set(event.keyCode, true);
 }
@@ -80,9 +129,19 @@ function keyup(event) {
         keyMap.set(event.keyCode, false);
     }
 }
+/*
+window.addEventListener("mouseup", function(event) {
 
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    picked = true;
+});*/
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
-window.addEventListener("mousemove", mouseHandler, false);
+window.addEventListener("mousemove", trackMovement, false);
+window.addEventListener("mousedown", function(){down = true; up = false}, false);
+window.addEventListener("mouseup", function(){up = true; down = false}, false);
+window.onresize = updateRect;
+
 //window.addEventListener("click", updateClick, false);

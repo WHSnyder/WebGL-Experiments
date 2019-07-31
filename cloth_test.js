@@ -19,7 +19,7 @@ var update_force_fs =
 precision highp float;
 
 #define GRAVITY vec3(0.0, -0.00005, 0.0)
-#define WIND vec3(0.0, 0.0, 0.000008)
+#define WIND vec3(0.0, 0.0, 0.00008)
 #define DAMPING 0.99
 
 in vec2 vScreenUV;
@@ -27,6 +27,7 @@ in vec2 vScreenUV;
 uniform sampler2D uPositionBuffer;
 uniform sampler2D uNormalBuffer;
 uniform sampler2D uOldPositionBuffer;
+
 
 layout(location=0) out vec3 outPosition;
 layout(location=1) out vec3 outOldPosition;
@@ -71,6 +72,9 @@ in vec2 vScreenUV;
 // uModVal and dir used to select the direction
 // to look for the neighbour we're going to check
 
+uniform sampler2D uPositionBuffer;
+uniform sampler2D uCutBuffer;
+
 layout(std140) uniform ConstraintUniforms {
 
     ivec2 uDir;
@@ -78,11 +82,8 @@ layout(std140) uniform ConstraintUniforms {
     float uRestDistance;   
 };
 
-uniform sampler2D uPositionBuffer;
-uniform float slice;
-
-
 out vec3 outPosition;
+
 
 
 void main() {
@@ -94,9 +95,7 @@ void main() {
     vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
     ivec2 maxTexelCoord = dimensions - 1;
 
-    
     //---------------------------------------
-
 
 
     int iDot = abs(texelCoord.x * uDir.x) + abs(texelCoord.y * uDir.y);
@@ -116,9 +115,12 @@ void main() {
             
             otherPin = true;
         }
+
+        vec3 cut = texelFetch(uCutBuffer, otherCoord, 0).xyz;
+        
         
         if (all(greaterThanEqual(otherCoord, ivec2(0, 0))) && all(lessThan(otherCoord, dimensions))
-            && !((otherCoord.y == dimensions.y/2 + 10 || otherCoord.y == dimensions.y/2 - 10) && slice > 0.0)){// && uModVal == 0 && uDir == ivec2(0,1))) {
+            && cut.x != 1.0){// && uModVal == 0 && uDir == ivec2(0,1))) {
             
             vec3 otherPosition = texelFetch(uPositionBuffer, otherCoord, 0).xyz;
             
@@ -130,8 +132,6 @@ void main() {
             }
         }
     }
-    
-    
     outPosition = position;
 }`;
 
@@ -201,42 +201,54 @@ precision highp float;
 
 in vec2 vScreenUV;
 
-layout(std140, column_major) uniform  SceneUniforms {
-    
+layout(std140, column_major) uniform SceneUniforms {
     mat4 viewProj;
     vec4 lightPosition;
 };
 
+
+uniform WindowUniforms {
+    float uWidth;
+    float uHeight;
+    
+    float uLeft;
+    float uBottom;
+};
+
+
 uniform sampler2D uPositionBuffer;
 
-uniform vec2 cutUV[10] 
+uniform vec2 seg1;
+uniform vec2 seg2;
 
-layout(location=0) out vec3 outPosition;
 
+layout(location=0) out vec3 mark;
 
 
 void main() {
-
+    
     ivec2 dimensions = textureSize(uPositionBuffer, 0);
     ivec2 maxTexelCoord = dimensions - 1;
     ivec2 texelCoord = ivec2(vScreenUV * vec2(dimensions));
     
     vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
-    
-    vec2 screenPos = (viewproj * vec4(position,1.0)).xy;
+    vec2 screenPos = (viewProj * vec4(position,1.0)).xy;
 
-    int i = 0;
+    screenPos.x = (screenPos.x/2.0 + .5) * uWidth + uLeft;
+    screenPos.y = (screenPos.y/-2.0 + .5) * uHeight + uBottom; 
+ 
+    float slope = (seg2.y - seg1.y)/(seg2.x - seg1.x);
+    float slopeFrag = (screenPos.y - seg1.y)/(screenPos.x - seg1.x);
 
-    position = vec3(1.0,1.0,1.0);
+    float diff = abs(slope - slopeFrag);
 
-    for (i = 0; i < 10; i++){
 
-        if (length(screenPos - cutUV[i]) < 1.0) {
-            position = vec3(0.0,0.0,0.0);
-        }
+    if (diff < 10.0){
+        mark = vec3(1.0);
+    }
+    else {
+        discard;
     }    
-    
-    outPosition = position;
 }`;
 
    
@@ -250,8 +262,6 @@ layout(location=1) in vec2 aUV;
 
 uniform sampler2D uPositionBuffer;
 uniform sampler2D uNormalBuffer;
-
-uniform float slice;
 
 layout(std140, column_major) uniform SceneUniforms {
     
@@ -271,7 +281,7 @@ void main() {
     
     ivec2 dimensions = textureSize(uPositionBuffer, 0);
 
-    cut = 1.0;
+    cut = 1.1;
     
     if ((aTexelCoord.y == dimensions.y/2 + 10 || aTexelCoord.y == dimensions.y/2 - 10) && (slice > 0.0)){
         
@@ -284,7 +294,6 @@ void main() {
     vUV = aUV;
 
     gl_PointSize = 4.0;
-
     gl_Position = viewProj * vec4(position, 1.0);
 }`;    
 
@@ -326,8 +335,14 @@ void main() {
     fragColor = vec4(color * (diffuse + ambient), 1.0);
 }`;
 
+var locked = false;
+var queue = [];
 
-       
+
+
+      
+
+
 utils.addTimerElement();
 
 if (!testExtension("EXT_color_buffer_float")) {
@@ -337,6 +352,10 @@ if (!testExtension("EXT_color_buffer_float")) {
 let canvas = document.getElementById("view");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+
+
+var rect = canvas.getBoundingClientRect();
+console.log(rect)
 
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
@@ -360,8 +379,16 @@ const BALL_RANGE = 0.9;
 let quadShader = app.createShader(PicoGL.VERTEX_SHADER, quad_vs);
 
 let constraintShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_constraint_fs);
+
+//console.log(constraintShader);
+
+
 let normalShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_normal_fs);
 let forceShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_force_fs);
+
+let cutShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_cut_fs);
+
+
 
 // Update wind and gravity forces
 //let updateForceFsSource = document.getElementById("update-force-fs").text.trim();
@@ -406,10 +433,20 @@ let updateFramebuffer = app.createFramebuffer(DATA_TEXTURE_DIM, DATA_TEXTURE_DIM
 .colorTarget(0, updateTarget);
 
 
+//Cut update framebuffers
+let cutTarget = app.createTexture2D(DATA_TEXTURE_DIM, DATA_TEXTURE_DIM, { 
+    internalFormat: PicoGL.RGBA32F
+});
+
+let cutFramebuffer = app.createFramebuffer(DATA_TEXTURE_DIM, DATA_TEXTURE_DIM)
+.colorTarget(0, cutTarget);
+
+
 ///////////////////////////
 // CLOTH GEOMETRY DATA
 ///////////////////////////
 let clothPositionData = new Float32Array(NUM_PARTICLES * 4);
+let cutDefaultData = new Float32Array(NUM_PARTICLES * 4);
 let clothNormalData = new Float32Array(NUM_PARTICLES * 4);
 let uvData = new Float32Array(NUM_PARTICLES * 2);
 let dataTextureIndex = new Int16Array(NUM_PARTICLES * 2);
@@ -431,6 +468,8 @@ for (let i = 0; i < NUM_PARTICLES; ++i) {
     clothPositionData[vec4i + 1] = v + 0.8;
 
     clothNormalData[vec4i + 2] = 1;
+
+    cutDefaultData[vec4i] = 0.0;
 
     //UV data, obvious
     uvData[vec2i] = u;
@@ -483,6 +522,17 @@ let normalTexture = app.createTexture2D(clothNormalData, DATA_TEXTURE_DIM, DATA_
 });
 
 
+let cutTexture = app.createTexture2D(cutDefaultData, DATA_TEXTURE_DIM, DATA_TEXTURE_DIM, {
+    internalFormat: PicoGL.RGBA32F,
+    minFilter: PicoGL.NEAREST,
+    magFilter: PicoGL.NEAREST,
+    wrapS: PicoGL.CLAMP_TO_EDGE,
+    wrapT: PicoGL.CLAMP_TO_EDGE
+});
+
+
+
+
 
 /////////////////////////
 // GEOMETRY FOR DRAWING
@@ -507,12 +557,6 @@ let quadArray = app.createVertexArray()
 let dataIndex = app.createVertexBuffer(PicoGL.SHORT, 2, dataTextureIndex);
 let uv = app.createVertexBuffer(PicoGL.FLOAT, 2, uvData);
 let indices = app.createIndexBuffer(PicoGL.UNSIGNED_SHORT, 3, indexData);
-
-console.log(indexData);
-
-console.log(dataTextureIndex);
-
-console.log(indices);
 
 
 
@@ -609,6 +653,19 @@ let updateShear4Uniforms = app.createUniformBuffer([
 .update();
 
 
+let windowUniforms = app.createUniformBuffer([
+    PicoGL.FLOAT,
+    PicoGL.FLOAT,
+    PicoGL.FLOAT,
+    PicoGL.FLOAT
+])
+.set(0, rect.width)
+.set(1, rect.height)
+.set(2, rect.left)
+.set(3, rect.bottom)
+.update();
+
+
 
 let projMatrix = mat4.create();
 mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 3.0);
@@ -638,12 +695,15 @@ let targetY = null;
 
 var cut = -1.0;
 
+var updateWorld = function(){};
+
 Promise.all([
 
     app.createPrograms(
-        [quadShader, forceShader],
-        [quadShader, constraintShader],
-        [quadShader, normalShader],
+        [quadShader, update_force_fs],
+        [quadShader, update_constraint_fs],
+        [quadShader, update_normal_fs],
+        [quadShader, update_cut_fs],
         [cloth_vs, phongShader]
     ),
 
@@ -651,7 +711,7 @@ Promise.all([
 
 ]).then(([
 
-    [updateForceProgram, updateConstraintProgram, updateNormalProgram, clothProgram],
+    [updateForceProgram, updateConstraintProgram, updateNormalProgram, cutProgram, clothProgram],
     [image]
 
 ]) => {
@@ -670,34 +730,42 @@ Promise.all([
     .texture("uNormalBuffer", normalTexture);
 
 
+
     // Structural constraints
     let updateHorizontal1DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateHorizontal1Uniforms);
-    
+    .uniformBlock("ConstraintUniforms", updateHorizontal1Uniforms)
+    .texture("uCutBuffer", cutTexture);
+
     let updateHorizontal2DrawCall  = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateHorizontal2Uniforms);
+    .uniformBlock("ConstraintUniforms", updateHorizontal2Uniforms)
+    .texture("uCutBuffer", cutTexture);
     
     let updateVertical1DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateVertical1Uniforms);
-    
+    .uniformBlock("ConstraintUniforms", updateVertical1Uniforms)
+    .texture("uCutBuffer", cutTexture);
+
     let updateVertical2DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateVertical2Uniforms);
+    .uniformBlock("ConstraintUniforms", updateVertical2Uniforms)
+    .texture("uCutBuffer", cutTexture);
 
 
 
     // Shear constraints
     let updateShear1DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateShear1Uniforms);
+    .uniformBlock("ConstraintUniforms", updateShear1Uniforms)
+    .texture("uCutBuffer", cutTexture);
     
     let updateShear2DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateShear2Uniforms);
+    .uniformBlock("ConstraintUniforms", updateShear2Uniforms)
+    .texture("uCutBuffer", cutTexture);
     
     let updateShear3DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateShear3Uniforms);
+    .uniformBlock("ConstraintUniforms", updateShear3Uniforms)
+    .texture("uCutBuffer", cutTexture);
     
     let updateShear4DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
-    .uniformBlock("ConstraintUniforms", updateShear4Uniforms);
-    
+    .uniformBlock("ConstraintUniforms", updateShear4Uniforms)
+    .texture("uCutBuffer", cutTexture);
     
     
     let updateNormalDrawCall = app.createDrawCall(updateNormalProgram, quadArray);
@@ -707,21 +775,26 @@ Promise.all([
     .uniformBlock("SceneUniforms", sceneUniformBuffer)
     .texture("uDiffuse", texture)
     .texture("uNormalBuffer", normalTexture);
-    
-   
+
+
+    let cutDrawCall = app.createDrawCall(cutProgram, quadArray)
+    .uniformBlock("SceneUniforms", sceneUniformBuffer)
+    .uniformBlock("WindowUniforms", windowUniforms)
+
+  
 
 
     /////////
     // DRAW
     /////////
-    function draw() {
+    updateWorld = function() {
         
         if (timer.ready()) {
-            
             utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
         }
         
         timer.start();
+
 
 
         updateForceDrawCall.texture("uPositionBuffer", positionTextureA);
@@ -734,54 +807,81 @@ Promise.all([
         app.drawFramebuffer(updateForceFramebuffer);
         
         updateForceDrawCall.draw();
+
+        cutFramebuffer.colorTarget(0, cutTexture);
+
         
-        for (let i = 0; i < CONSTRAINT_ITERATIONS; ++i) {
+        for (let i = 0; i < 10; ++i) {
             
             app.drawFramebuffer(updateFramebuffer);
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateHorizontal1DrawCall.texture("uPositionBuffer", positionTextureB)
-            .uniform("slice",1.0)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateHorizontal2DrawCall.texture("uPositionBuffer", positionTextureA)
-            .uniform("slice",cut)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateVertical1DrawCall.texture("uPositionBuffer", positionTextureB)
-            .uniform("slice",cut)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateVertical2DrawCall.texture("uPositionBuffer", positionTextureA)
-            .uniform("slice",cut)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateShear1DrawCall.texture("uPositionBuffer", positionTextureB)
-            .uniform("slice",cut)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateShear2DrawCall.texture("uPositionBuffer", positionTextureA)
-            .uniform("slice",cut)
-            .draw();
+            .texture("uCutBuffer", cutTexture)
+            .draw();    
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateShear3DrawCall.texture("uPositionBuffer", positionTextureB)
-            .uniform("slice",cut)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateShear4DrawCall.texture("uPositionBuffer", positionTextureA)
-            .uniform("slice",cut)
+            .texture("uCutBuffer", cutTexture)
             .draw();   
         }
 
 
-        
+        //while (locked){
+            //
+        //}
+
+        locked = true;
+
+        if (queue.length > 1){
+
+            cutDrawCall.uniform("seg1", queue.shift())
+            cutDrawCall.uniform("seg2", queue[0])
+
+            cutDrawCall.texture("uPositionBuffer", positionTextureA);
+
+            locked = false;
+
+            cutFramebuffer.colorTarget(0, cutTexture);
+
+
+            app.drawFramebuffer(cutFramebuffer);
+            cutDrawCall.draw();
+        }
+
+        locked = false;
+
+
         updateFramebuffer.colorTarget(0, normalTexture);
         updateNormalDrawCall.texture("uPositionBuffer", positionTextureA).draw();
         
@@ -797,7 +897,7 @@ Promise.all([
         oldPositionTextureB = temp;
         
         timer.end();
-        requestAnimationFrame(draw);
+        requestAnimationFrame(updateWorld);
     }
-    requestAnimationFrame(draw); 
+    //requestAnimationFrame(draw); 
 });

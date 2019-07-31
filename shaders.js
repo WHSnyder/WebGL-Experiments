@@ -271,6 +271,8 @@ var boxArray = app.createVertexArray()
 .vertexAttributeBuffer(1, normals);
 //.vertexAttributeBuffer(2, uv);
 
+var cut = false;
+
 
 var shell_verts, shell_norms;
 
@@ -444,7 +446,7 @@ function updateWorld() {
 
     boxData.frameUniforms.set(0, playerView)
     .set(1, boxData.modelMatrix)
-    .set(2, vec4.fromValues(1.0,1.0,1.0,1.0))
+    .set(2, vec4.fromValues(1.0,0.0,1.0,1.0))
     .update();
 
 
@@ -473,29 +475,30 @@ function updateWorld() {
         picked = false;
     }
 
-
     boxData.frameUniforms.update();
 
 
     // MAIN DRAW
-
     var time = performance.now()/1000;
     
     
-
     shellFrameUniforms.set(0, 1.0)
     .set(1, playerView)
     .set(2, frust)
     .set(3, time)
     .update()
 
-
     boxData.mainDrawCall.draw();
 
-    rippleDrawCall.draw();
-     
+
+    //WHEN YOU GET THE CHANCE, ASK HIM IF HE ACTUALLY REORDERS GPU COMMANDS...
+    shellFrameUniforms.set(0, 1.0).update()
+    rippleDrawCall.primitive(rippleDrawCall.gl.TRIANGLES).draw();
+
+    shellFrameUniforms.set(0, -1.0).update()
+    rippleDrawCall.primitive(rippleDrawCall.gl.LINES).draw();
+
 
     timer.end();
-
     requestAnimationFrame(updateWorld);
 }
