@@ -27,6 +27,7 @@ in vec2 vScreenUV;
 uniform sampler2D uPositionBuffer;
 uniform sampler2D uNormalBuffer;
 uniform sampler2D uOldPositionBuffer;
+uniform sampler2D uCutBuffer;
 
 
 layout(location=0) out vec3 outPosition;
@@ -206,7 +207,6 @@ layout(std140, column_major) uniform SceneUniforms {
     vec4 lightPosition;
 };
 
-
 uniform WindowUniforms {
     float uWidth;
     float uHeight;
@@ -215,7 +215,6 @@ uniform WindowUniforms {
     float uBottom;
 };
 
-
 uniform sampler2D uPositionBuffer;
 
 uniform vec2 seg1;
@@ -223,7 +222,6 @@ uniform vec2 seg2;
 
 
 layout(location=0) out vec3 mark;
-
 
 void main() {
     
@@ -234,17 +232,17 @@ void main() {
     vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
     vec2 screenPos = (viewProj * vec4(position,1.0)).xy;
 
-    screenPos.x = (screenPos.x/2.0 + .5) * uWidth + uLeft;
-    screenPos.y = (screenPos.y/-2.0 + .5) * uHeight + uBottom; 
+    screenPos.x = (screenPos.x/2.0 + .5) * uWidth;
+    screenPos.y = (screenPos.y/-2.0 + .5) * uHeight; 
  
-    float slope = (seg2.y - seg1.y)/(seg2.x - seg1.x);
-    float slopeFrag = (screenPos.y - seg1.y)/(screenPos.x - seg1.x);
+    //float slope = (seg2.y - seg1.y)/(seg2.x - seg1.x);
+    //float slopeFrag = (screenPos.y - seg1.y)/(screenPos.x - seg1.x);
 
-    float diff = abs(slope - slopeFrag);
+    float diff = length(screenPos - (seg1 + seg2)/2.0);    //abs(slope - slopeFrag);
 
 
-    if (diff < 10.0){
-        mark = vec3(1.0);
+    if (diff < 5.0){
+        mark = vec3(1.0,0.0,0.0);
     }
     else {
         discard;
@@ -262,6 +260,7 @@ layout(location=1) in vec2 aUV;
 
 uniform sampler2D uPositionBuffer;
 uniform sampler2D uNormalBuffer;
+uniform sampler2D uCutBuffer;
 
 layout(std140, column_major) uniform SceneUniforms {
     
@@ -278,15 +277,16 @@ out float cut;
 void main() {
 
     vec3 position = texelFetch(uPositionBuffer, aTexelCoord, 0).xyz;
+    vec3 cutStatus = texelFetch(uCutBuffer, aTexelCoord, 0).xyz;
     
     ivec2 dimensions = textureSize(uPositionBuffer, 0);
 
-    cut = 1.1;
-    
-    if ((aTexelCoord.y == dimensions.y/2 + 10 || aTexelCoord.y == dimensions.y/2 - 10) && (slice > 0.0)){
-        
+    cut = 1.0;
+
+    if (cutStatus.x == 1.0){
         cut = 0.0;
     }
+
 
     vPosition = position;
 
@@ -323,16 +323,16 @@ void main() {
     if (cut < 1.0) {
         discard;
     }
+    else {
+        vec3 color = texture(uDiffuse, vUV).rgb;
+        vec3 normal = normalize(vNormal);
+        vec3 lightVec = -normalize(vPosition - lightPosition.xyz);
     
+        float diffuse = abs(dot(lightVec, normal));
+        float ambient = 0.1;
     
-    vec3 color = texture(uDiffuse, vUV).rgb;
-    vec3 normal = normalize(vNormal);
-    vec3 lightVec = -normalize(vPosition - lightPosition.xyz);
-    
-    float diffuse = abs(dot(lightVec, normal));
-    float ambient = 0.1;
-    
-    fragColor = vec4(color * (diffuse + ambient), 1.0);
+        fragColor = vec4(color * (diffuse + ambient), 1.0);
+    }
 }`;
 
 var locked = false;
@@ -470,6 +470,10 @@ for (let i = 0; i < NUM_PARTICLES; ++i) {
     clothNormalData[vec4i + 2] = 1;
 
     cutDefaultData[vec4i] = 0.0;
+    cutDefaultData[vec4i+1] = 0.0;
+    cutDefaultData[vec4i+2] = 0.0;
+    cutDefaultData[vec4i+3] = 0.0;
+
 
     //UV data, obvious
     uvData[vec2i] = u;
@@ -693,7 +697,6 @@ let sceneUniformBuffer = app.createUniformBuffer([
 let targetZ = null;
 let targetY = null;
 
-var cut = -1.0;
 
 var updateWorld = function(){};
 
@@ -724,6 +727,7 @@ Promise.all([
     ///////////////
     // DRAW CALLS
     ///////////////
+
     // Update forces
     let updateForceDrawCall = app.createDrawCall(updateForceProgram, quadArray)
     .texture("uPositionBuffer", positionTextureA)
@@ -747,7 +751,6 @@ Promise.all([
     let updateVertical2DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
     .uniformBlock("ConstraintUniforms", updateVertical2Uniforms)
     .texture("uCutBuffer", cutTexture);
-
 
 
     // Shear constraints
@@ -808,8 +811,6 @@ Promise.all([
         
         updateForceDrawCall.draw();
 
-        cutFramebuffer.colorTarget(0, cutTexture);
-
         
         for (let i = 0; i < 10; ++i) {
             
@@ -856,24 +857,19 @@ Promise.all([
             .draw();   
         }
 
-
-        //while (locked){
-            //
-        //}
-
+        
         locked = true;
 
-        if (queue.length > 1){
+        if (queue.length > 0){
 
             cutDrawCall.uniform("seg1", queue.shift())
-            cutDrawCall.uniform("seg2", queue[0])
-
             cutDrawCall.texture("uPositionBuffer", positionTextureA);
 
             locked = false;
 
             cutFramebuffer.colorTarget(0, cutTexture);
 
+            console.log("yea here...")
 
             app.drawFramebuffer(cutFramebuffer);
             cutDrawCall.draw();
@@ -883,10 +879,12 @@ Promise.all([
 
 
         updateFramebuffer.colorTarget(0, normalTexture);
+        app.drawFramebuffer(updateFramebuffer);
+
         updateNormalDrawCall.texture("uPositionBuffer", positionTextureA).draw();
         
         clothDrawCall.texture("uPositionBuffer", positionTextureA)
-        .uniform("slice",cut);
+        .texture("uCutBuffer", cutTexture)
 
         app.defaultViewport().defaultDrawFramebuffer().clear();
         
@@ -899,5 +897,4 @@ Promise.all([
         timer.end();
         requestAnimationFrame(updateWorld);
     }
-    //requestAnimationFrame(draw); 
 });

@@ -22,7 +22,7 @@ var mouseRead = false;
 
 var down = false,up = false;
 
-
+var lastX = 0,lastY = 0;
 
 function trackMovement(e){
 
@@ -34,7 +34,9 @@ function trackMovement(e){
 
         locked = true;
 
-        queue.push(vec2.fromValues(e.pageX, e.pageY)) 
+        if (lastX != e.pageX){
+            queue.push(vec2.fromValues(e.pageX, e.pageY)) 
+        }
 
         locked = false;       
     }
