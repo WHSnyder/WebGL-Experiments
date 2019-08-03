@@ -52,7 +52,7 @@ function trackMovement(e){
 
 
 
-/*
+
 
 function updateClick(){
 
@@ -63,7 +63,7 @@ function updateClick(){
 	.set(1, clickpos)
 	.update()
 }
-*/
+
 
 
 function mouseHandler(e){
@@ -131,19 +131,19 @@ function keyup(event) {
         keyMap.set(event.keyCode, false);
     }
 }
-/*
+
 window.addEventListener("mouseup", function(event) {
 
     mouseX = event.clientX;
     mouseY = event.clientY;
     picked = true;
-});*/
+});
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
-window.addEventListener("mousemove", trackMovement, false);
-window.addEventListener("mousedown", function(){down = true}, false);
-window.addEventListener("mouseup", function(){down = false; reset = true;}, false);
-window.onresize = updateRect;
+window.addEventListener("mousemove", mouseHandler, false);
+//window.addEventListener("mousedown", function(){down = true}, false);
+//window.addEventListener("mouseup", function(){down = false; reset = true;}, false);
+//window.onresize = updateRect;
 
-//window.addEventListener("click", updateClick, false);
+window.addEventListener("click", updateClick, false);

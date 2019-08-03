@@ -11,6 +11,8 @@ class Player {
 
         this.rot = mat4.create();
         this.tran = mat4.create();
+
+        this.left = vec3.fromValues(1.0,0.0,0.0)
     }
 
     rotate(axis, deg){
@@ -18,6 +20,7 @@ class Player {
         mat4.fromRotation(this.rot, deg, axis);
 
         vec3.transformMat4(this.upVec, this.upVec, this.rot);
+        vec3.transformMat4(this.left, this.left, this.rot);
         vec3.transformMat4(this.focusVec, this.focusVec, this.rot); //probably wrong...
     }
 

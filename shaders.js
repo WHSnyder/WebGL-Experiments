@@ -1,24 +1,20 @@
 var objects = {};
 
 
+var g_up = vec3.fromValues(0.0,1.0,0.0)
+
+
 
 var shell;
-var proceed = 0; 
 
 function readOBJFile(fileName, scale, reverse) {
   
   var request = new XMLHttpRequest();
 
-  request.onreadystatechange = function() {
-    
-    if (request.readyState === 4 && request.status !== 404) {
-      shell = onReadOBJFile(request.responseText, fileName, scale, reverse);
-      proceed = 1;
-    }
-  }
-
   request.open('GET', fileName, false); // Create a request to acquire the file
-  request.send();                      // Send the request
+  request.send(); 
+
+  return onReadOBJFile(request.responseText, fileName, scale, reverse);
 }
 
 
@@ -214,16 +210,16 @@ out vec4 fragColor;
 
 void main() {
 
-	vec4 baseColor = vec4(1.0,1.0,1.0,1.0);//texture(uTextureMap, vTexCoord);
-	//vec3 normal = normalize(vNormal);
-	//vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
-	//vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
-	//vec3 reflectionDirection = reflect(-lightDirection, normal);
-	//float nDotL = max(dot(lightDirection, normal), 0.0);
-	//float diffuse = nDotL;
-	//float ambient = 0.1;
-	//float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
-	fragColor = baseColor;//vec4(uHighlightColor.rgb * (ambient + diffuse + specular) * baseColor.rgb, baseColor.a);
+	vec4 baseColor = vec4(1.0,0.0,1.0,1.0);//texture(uTextureMap, vTexCoord);
+	vec3 normal = normalize(vNormal);
+	vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
+	vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
+	vec3 reflectionDirection = reflect(-lightDirection, normal);
+	float nDotL = max(dot(lightDirection, normal), 0.0);
+	float diffuse = nDotL;
+	float ambient = 0.1;
+	float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
+	fragColor = vec4(uHighlightColor.rgb * (ambient + diffuse + specular) * baseColor.rgb, baseColor.a);
 }`;
 
 
@@ -280,13 +276,11 @@ var cut = false;
 
 var shell_verts, shell_norms;
 
-readOBJFile("./models/sphereshell.obj", 4, 0)
+objects["shell"] = readOBJFile("./models/sphereshell.obj", 4, 0)
+objects[ "cat"] = readOBJFile("./models/gitcat.obj", 2, 0)
 
-while (proceed == 0){
-    //
-}
 
-var shelldata = shell.getDrawingInfo()
+var shelldata = objects["shell"].getDrawingInfo()
 
 var shell_positions = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.vertices);
 var shell_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.normals);
@@ -294,6 +288,17 @@ var shell_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, shelldata.normals);
 var shellArray = app.createVertexArray()
 .vertexAttributeBuffer(0, shell_positions)
 .vertexAttributeBuffer(1, shell_normals)
+
+
+
+var catdata = objects["cat"].getDrawingInfo()
+
+var cat_positions = app.createVertexBuffer(PicoGL.FLOAT, 3, catdata.vertices);
+var cat_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, catdata.normals);
+
+var catArray = app.createVertexArray()
+.vertexAttributeBuffer(0, cat_positions)
+.vertexAttributeBuffer(1, cat_normals)
 
 
 
@@ -372,6 +377,64 @@ var boxData =
 
 
 
+
+
+/*
+let colorTarget = app.createCubemap({
+    width: CUBEMAP_DIM,
+    height: CUBEMAP_DIM
+});
+        
+let depthTarget = app.createRenderbuffer(CUBEMAP_DIM, CUBEMAP_DIM, PicoGL.DEPTH_COMPONENT16);
+        
+let cubemapBuffer = app.createFramebuffer()
+.colorTarget(0, colorTarget, PicoGL.TEXTURE_CUBE_MAP_NEGATIVE_X)
+.colorTarget(1, colorTarget, PicoGL.TEXTURE_CUBE_MAP_POSITIVE_X)
+.colorTarget(2, colorTarget, PicoGL.TEXTURE_CUBE_MAP_NEGATIVE_Y)
+.colorTarget(3, colorTarget, PicoGL.TEXTURE_CUBE_MAP_POSITIVE_Y)
+.colorTarget(4, colorTarget, PicoGL.TEXTURE_CUBE_MAP_NEGATIVE_Z)
+.colorTarget(5, colorTarget, PicoGL.TEXTURE_CUBE_MAP_POSITIVE_Z)
+.depthTarget(depthTarget);
+
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var pickingProgram = app.createProgram(picking_vs, picking_fs);
 var mainProgram = app.createProgram(main_vs, main_fs);
 var rippleProgram = app.createProgram(ripple_vs, ripple_fs);
@@ -384,6 +447,15 @@ boxData.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
 .uniformBlock("SceneUniforms", sceneUniforms)
 .uniformBlock("FrameUniforms", boxData.frameUniforms)
 
+
+
+var catCall = app.createDrawCall(mainProgram, catArray)
+.uniformBlock("SceneUniforms", sceneUniforms)
+.uniformBlock("FrameUniforms", boxData.frameUniforms)
+
+
+
+
 var rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
 .uniformBlock("ClickData", clickData)
 .uniformBlock("FrameUniforms", shellFrameUniforms)
@@ -393,6 +465,8 @@ setTimeout(function(){
 }, 2000);
 
 boxData.mainDrawCall.uniform("frustmat", frust);
+catCall.uniform("frustmat", frust);
+
 
 
 
@@ -422,8 +496,8 @@ function updateWorld() {
 
 	if (!mouseRead){
 
-    	player.rotate(vec3.fromValues(1.0,0.0,0.0), deltamY/100);
-    	player.rotate(player.getUp(), -deltamX/100);
+    	player.rotate(player.left, deltamY/100);
+    	player.rotate(g_up, -deltamX/100);
 
     	mouseRead = true;
 	}
@@ -439,8 +513,7 @@ function updateWorld() {
     timer.start();
 
 
-    boxData.rotate[0] += 0.01;
-    boxData.rotate[1] += 0.02;
+    boxData.rotate[2] += 0.02;
 
     utils.xformMatrix(boxData.modelMatrix, boxData.translate, boxData.rotate, boxData.scale);
     
@@ -493,6 +566,8 @@ function updateWorld() {
     .update()
 
     boxData.mainDrawCall.draw();
+
+    catCall.draw();
 
 
     //WHEN YOU GET THE CHANCE, ASK HIM IF HE ACTUALLY REORDERS GPU COMMANDS...
