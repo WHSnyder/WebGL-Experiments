@@ -1,5 +1,7 @@
 var objects = {};
 
+var mode = 2;
+
 
 var g_up = vec3.fromValues(0.0,1.0,0.0)
 
@@ -104,7 +106,6 @@ void main(){
 
 
 
-
 var ripple_fs = `#version 300 es
 precision highp float;
 
@@ -115,17 +116,11 @@ out vec4 fragColor;
 
 void main() {
 
-	/*vec2 adjusted = vec2(mousepos.x - 10.0, 700.0-1.0 * mousepos.y);
-
-    float dist = length(gl_FragCoord.xy - adjusted);
-
-    vec4 addit = vec4(0.0,0.0,0.0,0.0);
-
-    if (dist < 50.0){
-        addit = ((50.0 - dist)/50.0) * vec4(0.2,0.2,0.2,0.0);
-    }*/
-
+	
     fragColor = vec4(color, 1.0);// + addit;
+    
+
+    
 }`;
 
 

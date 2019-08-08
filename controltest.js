@@ -132,18 +132,25 @@ function keyup(event) {
     }
 }
 
-window.addEventListener("mouseup", function(event) {
 
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    picked = true;
-});
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
-window.addEventListener("mousemove", mouseHandler, false);
-//window.addEventListener("mousedown", function(){down = true}, false);
-//window.addEventListener("mouseup", function(){down = false; reset = true;}, false);
-//window.onresize = updateRect;
 
-window.addEventListener("click", updateClick, false);
+if (mode == 1){
+    window.addEventListener("mousedown", function(){down = true}, false);
+    window.addEventListener("mouseup", function(){down = false; reset = true;}, false);
+    window.onresize = updateRect;
+    window.addEventListener("mousemove", trackMovement, false);
+
+}
+else {
+    window.addEventListener("mouseup", function(event) {
+        mouseX = event.clientX;
+        mouseY = event.clientY;
+        picked = true;
+    });
+    window.addEventListener("mousemove", mouseHandler, false);
+    window.addEventListener("click", updateClick, false);
+}
+

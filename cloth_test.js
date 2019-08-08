@@ -356,8 +356,8 @@ void main() {
 var mouseData = [null,null];
 var reset = true;
 
-
-      
+var cont = 1;
+var mode = 1;    
 
 
 utils.addTimerElement();
@@ -810,6 +810,10 @@ Promise.all([
     /////////
     updateWorld = function() {
         
+        if (cont == 0){
+            return;
+        }
+
         if (timer.ready()) {
             utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
         }
