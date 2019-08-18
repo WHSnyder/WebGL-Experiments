@@ -133,7 +133,7 @@ void main(){
     float speed = 2.0;
     float dist = speed * (timevar - clicktime);
 
-    float dot_adjusted = 1.0 + dot(normal, normalize(clickpos));
+    float dot_adjusted = 1.0 + dot(normalize(normal), normalize(clickpos));
 
     float mag = clamp(1.0 - abs(dist - dot_adjusted), 0.0, 1.0); 
 
@@ -201,6 +201,11 @@ uniform FrameUniforms {
 	mat4 uModelMatrix;
 	vec4 uHighlightColor;
 };
+
+uniform ClickData {
+	float clicktime;
+	vec3 clickpos;
+};
         
 out vec3 vPosition;
 out vec3 vNormal;
@@ -220,8 +225,12 @@ var main_fs = `#version 300 es
 precision highp float;
 
 uniform SceneUniforms {
-	vec4 uLightPosition;
 	vec4 uEyePosition;
+};
+
+uniform ClickData {
+	float clicktime;
+	vec3 clickpos;
 };
 
 uniform FrameUniforms {
@@ -531,7 +540,8 @@ function updateWorld() {
     var time = performance.now()/1000;
     
     
-    shellFrameUniforms.set(0, playerView)
+    shellFrameUniforms.
+    .set(0, playerView)
     .set(1, frust)
     .set(2, time)
     .update()
