@@ -245,7 +245,7 @@ void main() {
     ivec2 texelCoord = ivec2(vScreenUV * vec2(dimensions));
     
     vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
-    vec2 screenPos = (viewProj * vec4(position,1.0)).xy;
+    vec2 screenPos = (viewProj * vec4(position, 1.0)).xy;
 
     screenPos.x = (screenPos.x/2.0 + .5) * uWidth;
     screenPos.y = (screenPos.y/-2.0 + .5) * uHeight; 
@@ -259,7 +259,7 @@ void main() {
     float between = dot(cutVector, screenVector)/(cutLength * screenLength);
        
 
-    if (1.0 - between <= .1 && screenLength < cutLength){
+    if (abs(1.0 - between) <= 0.05 && screenLength < cutLength){
         mark = vec3(1.0,0.0,0.0);
     }
     else {

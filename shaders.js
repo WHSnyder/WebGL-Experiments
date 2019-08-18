@@ -52,7 +52,7 @@ uniform ClickData {
 };
 
 
-out vec3 color;
+out vec4 color;
 
 
 
@@ -92,11 +92,11 @@ void main(){
     vec3 lcolor = vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
 
 
-    color = mag * lcolor;
+    color = vec4(mag * lcolor);
 
     
     if (flag < 0.0){
-        color = clamp(mag, 0.0, 1.0) * vec3(1.0, 1.0, 1.0) + color;
+        color = clamp(mag, 0.0, 1.0) * vec4(1.0, 1.0, 1.0,0.0) + color);
     }
     
 
@@ -105,22 +105,57 @@ void main(){
 }`;
 
 
+var simpler_ripple_vs = `#version 300 es
+#define M_PI 3.1415926535897932384626433832795
+
+precision highp float;
+
+layout(std140, column_major) uniform;
+
+layout(location=0) in vec3 vertpos;
+layout(location=1) in vec3 normal;
+
+uniform FrameUniforms {
+	mat4 viewmat;
+	mat4 frustmat;
+	float timevar;
+};
+
+uniform ClickData {
+	float clicktime;
+	vec3 clickpos;
+};
+
+out vec4 color;
+
+void main(){
+
+    float speed = 2.0;
+    float dist = speed * (timevar - clicktime);
+
+    float dot_adjusted = 1.0 + dot(normal, normalize(clickpos));
+
+    float mag = clamp(1.0 - abs(dist - dot_adjusted), 0.0, 1.0); 
+
+
+    vec3 lcolor = vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
+    color = vec4(mag * lcolor, 1.0);
+
+    vec3 newvertpos = vec3(10.0 * mag * vec3(1.0,1.0,1.0) + 6.0*vertpos);
+    gl_Position = frustmat * viewmat * vec4(newvertpos, 1.0);
+}`;
+
+
 
 var ripple_fs = `#version 300 es
 precision highp float;
 
-
-in vec3 color;
+in vec4 color;
 
 out vec4 fragColor;
 
 void main() {
-
-	
-    fragColor = vec4(color, 1.0);// + addit;
-    
-
-    
+    fragColor = color;// + addit;    
 }`;
 
 
@@ -328,15 +363,13 @@ var clickData = app.createUniformBuffer([
 
 var shellFrameUniforms = app.createUniformBuffer([
 
-	PicoGL.FLOAT, //flag
 	PicoGL.FLOAT_MAT4, //viewmat
 	PicoGL.FLOAT_MAT4, //frustmat
-
 	PicoGL.FLOAT //timevar
-]).set(0, 1.0)
-.set(1, player.getView())
-.set(2, frust)
-.set(3, 0.0)
+
+]).set(0, player.getView())
+.set(1, frust)
+.set(2, 0.0)
 .update()
 
 
@@ -374,65 +407,9 @@ var boxData =
 
 
 
-/*
-let colorTarget = app.createCubemap({
-    width: CUBEMAP_DIM,
-    height: CUBEMAP_DIM
-});
-        
-let depthTarget = app.createRenderbuffer(CUBEMAP_DIM, CUBEMAP_DIM, PicoGL.DEPTH_COMPONENT16);
-        
-let cubemapBuffer = app.createFramebuffer()
-.colorTarget(0, colorTarget, PicoGL.TEXTURE_CUBE_MAP_NEGATIVE_X)
-.colorTarget(1, colorTarget, PicoGL.TEXTURE_CUBE_MAP_POSITIVE_X)
-.colorTarget(2, colorTarget, PicoGL.TEXTURE_CUBE_MAP_NEGATIVE_Y)
-.colorTarget(3, colorTarget, PicoGL.TEXTURE_CUBE_MAP_POSITIVE_Y)
-.colorTarget(4, colorTarget, PicoGL.TEXTURE_CUBE_MAP_NEGATIVE_Z)
-.colorTarget(5, colorTarget, PicoGL.TEXTURE_CUBE_MAP_POSITIVE_Z)
-.depthTarget(depthTarget);
-
-
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 var pickingProgram = app.createProgram(picking_vs, picking_fs);
 var mainProgram = app.createProgram(main_vs, main_fs);
-var rippleProgram = app.createProgram(ripple_vs, ripple_fs);
+var rippleProgram = app.createProgram(simpler_ripple_vs, ripple_fs);
 
 
 boxData.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
@@ -554,10 +531,9 @@ function updateWorld() {
     var time = performance.now()/1000;
     
     
-    shellFrameUniforms.set(0, 1.0)
-    .set(1, playerView)
-    .set(2, frust)
-    .set(3, time)
+    shellFrameUniforms.set(0, playerView)
+    .set(1, frust)
+    .set(2, time)
     .update()
 
     boxData.mainDrawCall.draw();
@@ -566,11 +542,10 @@ function updateWorld() {
 
 
     //WHEN YOU GET THE CHANCE, ASK HIM IF HE ACTUALLY REORDERS GPU COMMANDS...
-    shellFrameUniforms.set(0, 1.0).update()
     rippleDrawCall.primitive(rippleDrawCall.gl.TRIANGLES).draw();
 
-    shellFrameUniforms.set(0, -1.0).update()
-    rippleDrawCall.primitive(rippleDrawCall.gl.LINES).draw();
+    //shellFrameUniforms.set(0, -1.0).update()
+    //rippleDrawCall.primitive(rippleDrawCall.gl.LINES).draw();
 
 
     timer.end();
