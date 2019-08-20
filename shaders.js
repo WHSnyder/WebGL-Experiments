@@ -2,6 +2,11 @@ var objects = {};
 
 var mode = 2;
 
+var dimension = [document.documentElement.clientWidth, document.documentElement.clientHeight];
+var c = document.getElementById("view");
+c.width = dimension[0];
+c.height = dimension[1];
+
 
 var g_up = vec3.fromValues(0.0,1.0,0.0)
 
@@ -130,18 +135,20 @@ out vec4 color;
 
 void main(){
 
-    float speed = 2.0;
+    float speed = 0.5;
     float dist = speed * (timevar - clicktime);
 
     float dot_adjusted = 1.0 + dot(normalize(normal), normalize(clickpos));
+    float dot_vert = 1.0 - dot(normalize(vertpos), normalize(clickpos));
 
     float mag = clamp(1.0 - abs(dist - dot_adjusted), 0.0, 1.0); 
+    float mag_vert = clamp(1.0 - abs(dist - dot_vert), 0.0, 1.0); 
 
 
-    vec3 lcolor = vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
+    vec3 lcolor = normalize(clickpos); //vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
     color = vec4(mag * lcolor, 1.0);
 
-    vec3 newvertpos = vec3(10.0 * mag * vec3(1.0,1.0,1.0) + 6.0*vertpos);
+    vec3 newvertpos = vec3(15.0 * mag_vert * vec3(1.0,1.0,1.0) + 6.0*vertpos);
     gl_Position = frustmat * viewmat * vec4(newvertpos, 1.0);
 }`;
 
@@ -168,7 +175,7 @@ uniform mat4 frustmat;
 uniform mat4 modelmat;
     
 void main() {
-    gl_Position = frustmat * viewmat * modelmat * aPosition;
+    gl_Position = frustmat * viewmat * modelmat * vec4(2.0 * aPosition.xyz,1.0);
 }`;
 
 
@@ -202,10 +209,6 @@ uniform FrameUniforms {
 	vec4 uHighlightColor;
 };
 
-uniform ClickData {
-	float clicktime;
-	vec3 clickpos;
-};
         
 out vec3 vPosition;
 out vec3 vNormal;
@@ -224,9 +227,10 @@ var main_fs = `#version 300 es
 
 precision highp float;
 
-uniform SceneUniforms {
+/*uniform SceneUniforms {
+	vec4 uLightPosition;
 	vec4 uEyePosition;
-};
+};*/
 
 uniform ClickData {
 	float clicktime;
@@ -242,6 +246,8 @@ uniform FrameUniforms {
         
 //uniform sampler2D uTextureMap;
 
+uniform float timevar;
+
 in vec3 vPosition;
 in vec3 vNormal;
 in vec2 vTexCoord;
@@ -249,16 +255,29 @@ out vec4 fragColor;
 
 void main() {
 
-	vec4 baseColor = vec4(1.0,0.0,1.0,1.0);//texture(uTextureMap, vTexCoord);
+	float speed = 0.5;
+    float dist = speed * (timevar - clicktime);
+
+    float dot_click = -1.0 + dot(normalize(vNormal), normalize(clickpos));
+
+    float mag = 5.0 * clamp(1.0 - abs(dist + dot_click), 0.0, 1.0); 
+
+
+	vec4 baseColor = vec4(mag * normalize(clickpos), 1.0);//vec4(0.2,0.2,0.2,1.0);
 	vec3 normal = normalize(vNormal);
-	vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
-	vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
-	vec3 reflectionDirection = reflect(-lightDirection, normal);
-	float nDotL = max(dot(lightDirection, normal), 0.0);
-	float diffuse = nDotL;
+
+	//vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
+
+	//vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
+	//vec3 reflectionDirection = reflect(-lightDirection, normal);
+	
+	//float nDotL = max(dot(lightDirection, normal), 0.0);
+
+
+	//float diffuse = mag;
 	float ambient = 0.1;
-	float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
-	fragColor = vec4(uHighlightColor.rgb * (ambient + diffuse + specular) * baseColor.rgb, baseColor.a);
+	//float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
+	fragColor = vec4(ambient * baseColor.rgb, baseColor.a);
 }`;
 
 
@@ -316,7 +335,7 @@ var cut = false;
 var shell_verts, shell_norms;
 
 objects["shell"] = readOBJFile("./models/sphereshell.obj", 4, 0)
-objects[ "cat"] = readOBJFile("./models/gitcat.obj", 2, 0)
+objects["cat"] = readOBJFile("./models/gitcat.obj", 2, 0)
 
 
 var shelldata = objects["shell"].getDrawingInfo()
@@ -424,15 +443,18 @@ var rippleProgram = app.createProgram(simpler_ripple_vs, ripple_fs);
 boxData.pickingDrawCall = app.createDrawCall(pickingProgram, boxArray)
 .uniform("uPickColor", boxData.pickColor);
 
+
 boxData.mainDrawCall = app.createDrawCall(mainProgram, boxArray)
-.uniformBlock("SceneUniforms", sceneUniforms)
 .uniformBlock("FrameUniforms", boxData.frameUniforms)
+.uniformBlock("ClickData", clickData)
+//.uniformBlock("SceneUniforms", sceneUniforms)
 
 
 
 var catCall = app.createDrawCall(mainProgram, catArray)
-.uniformBlock("SceneUniforms", sceneUniforms)
 .uniformBlock("FrameUniforms", boxData.frameUniforms)
+.uniformBlock("ClickData", clickData)
+//.uniformBlock("SceneUniforms", sceneUniforms)
 
 
 
@@ -443,12 +465,10 @@ var rippleDrawCall = app.createDrawCall(rippleProgram, shellArray)
 
 setTimeout(function(){
     //do what you need here
-}, 2000);
+}, 1000);
 
 boxData.mainDrawCall.uniform("frustmat", frust);
 catCall.uniform("frustmat", frust);
-
-
 
 
 var picked = false;
@@ -524,7 +544,8 @@ function updateWorld() {
         if (pickedColor[0] === 255) {
 
         	console.log("clicked box...")
-            window.open('./thegoods/resume_ws.pdf');
+            //window.open('./thegoods/resume_ws.pdf');
+        	window.open("https://github.com/WHSnyder");
         }
         else {
         	//ripple
@@ -540,14 +561,15 @@ function updateWorld() {
     var time = performance.now()/1000;
     
     
-    shellFrameUniforms.
-    .set(0, playerView)
+    shellFrameUniforms.set(0, playerView)
     .set(1, frust)
     .set(2, time)
     .update()
 
-    boxData.mainDrawCall.draw();
+    //boxData.mainDrawCall.uniform("timevar", time);
+    //boxData.mainDrawCall.draw();
 
+    catCall.uniform("timevar", time);
     catCall.draw();
 
 

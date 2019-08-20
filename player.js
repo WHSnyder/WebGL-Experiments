@@ -8,7 +8,6 @@ class Player {
         this.focusCoord = vec3.create();
         
         this.lookMat = mat4.create();
-
         this.rot = mat4.create();
         this.tran = mat4.create();
 
