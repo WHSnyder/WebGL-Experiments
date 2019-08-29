@@ -1,56 +1,56 @@
 var current_time = 0;
 
-
-
-
-
+var window_offset = vec2.create();
+var window_scale = vec2.create();
+var clip_coords = vec2.create();
 
 var dir = 0;
-
 var n = 0;
 
 var currTime, timePassed;
-
 var clicktime = 0;
 var clickpos = vec3.fromValues(0.0,0.0,6.7);
-
 
 var mouseInitialized = false;
 var deltamX = 0, delatmY = 0;
 var mouseRead = false;
 
-
 var down = false,up = false;
-
 var lastX = 0,lastY = 0;
+
+
+function getClipCoords(pageX, pageY){
+
+    let test = vec2.fromValues(pageX, pageY);
+    vec2.sub(clip_coords, test, window_offset);
+    vec2.div(clip_coords, clip_coords, window_scale);
+
+    vec2.multiply(clip_coords, clip_coords, vec2.fromValues(2,-2));
+    vec2.sub(clip_coords, clip_coords, vec2.fromValues(1,1));
+
+    return clip_coords;
+}
+
 
 function trackMovement(e){
 
     if (down){
+        let init = getClipCoords(e.pageX, e.pageY)
+
         if (reset){
-            mouseData[0] = vec2.fromValues(e.pageX, e.pageY);
-            mouseData[1] = vec2.fromValues(e.pageX, e.pageY);
+            mouseData[0] = init;
+            mouseData[1] = init;
             reset = false;
         }
         else if (mouseData[0] == null){
             mouseData[0] = vec2.clone(mouseData[1]);
-            mouseData[1] = vec2.fromValues(e.pageX, e.pageY);
+            mouseData[1] = init;
         }
         else {
-            mouseData[1] = vec2.fromValues(e.pageX, e.pageY)
+            mouseData[1] = init;
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -86,13 +86,12 @@ function mouseHandler(e){
 
 
 function updateRect(){
-    rect = canvas.getBoundingClientRect();
 
-    windowUniforms.set(0, rect.width)
-    .set(1, rect.height)
-    .set(2, rect.left)
-    .set(3, rect.bottom)
-    .update();
+    console.log("updated...")
+
+    rect = canvas.getBoundingClientRect();
+    window_offset = vec2.fromValues(rect.left, rect.bottom);
+    window_scale = vec2.fromValues(rect.width, rect.height);
 }
 
 
@@ -116,6 +115,7 @@ function keydown(event) {
     else if (event.keyCode == 84){
         cont = 0;
         keyMap.set(71, false);
+        //updateRect();
     }
     else if (event.keyCode == 87){
         //updatefps = 1;
@@ -132,25 +132,29 @@ function keyup(event) {
     }
 }
 
-
+updateRect()
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
 
 if (mode == 1){
     window.addEventListener("mousedown", function(){down = true}, false);
-    window.addEventListener("mouseup", function(){down = false; reset = true;}, false);
+    window.addEventListener("mouseup", function(event){
+        down = false; 
+        reset = true;
+        console.log("WebGL coords, from: " + getClipCoords(event.pageX, event.pageY));
+    }, false);
     window.onresize = updateRect;
     window.addEventListener("mousemove", trackMovement, false);
-
 }
 else {
     window.addEventListener("mouseup", function(event) {
         mouseX = event.clientX;
         mouseY = event.clientY;
-        picked = true;
+        picked = true; 
     });
     window.addEventListener("mousemove", mouseHandler, false);
     window.addEventListener("click", updateClick, false);
 }
 
+cont = 1;

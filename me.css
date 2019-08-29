@@ -1,0 +1,91 @@
+body {
+	position: relative;
+
+    background-color: lightblue;
+    margin-left: 5%;
+
+    font-family: Verdana;
+}
+
+#name {
+	position: relative;
+
+	float: left;
+	width: 10%;
+
+	display: inline;
+}
+
+#goods {
+
+	position: relative;
+	float: left;
+	width: 55%;
+	margin-top: 5%;
+	margin-left: 10%;
+	max-height: 90%;
+}
+
+.project {
+
+	-webkit-transition: 0.5s ease-in-out;
+    -moz-transition: 0.5s ease-in-out;
+    -o-transition: 0.5s ease-in-out;
+    transition: 0.5s ease-in-out;
+
+    transition-delay: 0.0s;
+    opacity: 0.0; 
+	position: relative;
+
+	float: left;
+
+	border-radius: 10px;
+	width: 40%;
+	height: 30%;
+	overflow: auto;
+
+	text-align: center;
+
+	background-color: black;
+
+	box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2), 0 12px 30px 0 rgba(0, 0, 0, 0.19);
+
+}
+
+.project_image {
+
+    -webkit-filter: grayscale(100%);
+    -moz-filter: grayscale(100%);
+    filter: grayscale(100%);
+    transition: all 0.5s ease;
+
+  	display: block;
+
+    max-width: 90%;
+    max-height: 80%;
+
+  	margin-left: auto;
+  	margin-right: auto;
+  	margin-up: auto;
+  	margin-bottom: auto;
+
+  	align-content: center;
+}
+
+.project_image:hover {
+   -webkit-filter: grayscale(0%);
+   -moz-filter: grayscale(0%);
+   filter: grayscale(0%);
+}
+
+.project + .project {
+	margin-left: 10%;
+}
+
+#opts {
+
+	float: left;
+	width: 15%;
+	margin-top: 20%;
+	margin-left: 5%;
+}

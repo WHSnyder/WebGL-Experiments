@@ -143,7 +143,7 @@ void main() {
             float dist = length(diffVec);
             
             if (dist > uRestDistance) {
-                position += diffVec * (1.0 - uRestDistance / dist) * (otherPin ? 1.0 : 0.5);
+                position += diffVec * (1.0 - uRestDistance / (dist)) * (otherPin ? 1.0 : 0.5);
             }
         }
     }
@@ -221,20 +221,10 @@ layout(std140, column_major) uniform SceneUniforms {
     vec4 lightPosition;
 };
 
-uniform WindowUniforms {
-    float uWidth;
-    float uHeight;
-    
-    float uLeft;
-    float uBottom;
-};
-
 uniform sampler2D uPositionBuffer;
 
 uniform vec2 cutStart;
 uniform vec2 cutEnd;
-
-
 
 layout(location=0) out vec3 mark;
 
@@ -245,26 +235,38 @@ void main() {
     ivec2 texelCoord = ivec2(vScreenUV * vec2(dimensions));
     
     vec3 position = texelFetch(uPositionBuffer, texelCoord, 0).xyz;
-    vec2 screenPos = (viewProj * vec4(position, 1.0)).xy;
-
-    screenPos.x = (screenPos.x/2.0 + .5) * uWidth;
-    screenPos.y = (screenPos.y/-2.0 + .5) * uHeight; 
+    vec4 viewPos = (viewProj * vec4(position, 1.0));
+    vec2 screenPos = viewPos.xy/viewPos.w;
 
     vec2 cutVector = cutEnd - cutStart;
     vec2 screenVector = screenPos - cutStart;
+
+    vec2 rej = screenVector - cutVector * dot(cutVector, screenVector)/dot(cutVector, cutVector);
+
+
+
+    /*
 
     float cutLength = length(cutVector);
     float screenLength = length(screenVector);
 
     float between = dot(cutVector, screenVector)/(cutLength * screenLength);
-       
+     
 
-    if (abs(1.0 - between) <= 0.05 && screenLength < cutLength){
+    if (abs(1.0 - between) <= 0.1 && screenLength < cutLength){
         mark = vec3(1.0,0.0,0.0);
     }
     else {
         discard;
-    }    
+    } */
+
+
+    if (length(rej) < .01 && length(screenVector) < length(cutVector) ){// && (dot(cutVector, screenVector)/(length(cutVector) * length(screenVector))) > .95){
+        mark = vec3(1.0,0.0,0.0);
+    }
+    else {
+        discard;
+    }
 }`;
 
    
@@ -305,13 +307,11 @@ void main() {
         cut = 0.0;
     }
 
-
     vPosition = position;
 
     vNormal = texelFetch(uNormalBuffer, aTexelCoord, 0).xyz;
     vUV = aUV;
 
-    gl_PointSize = 4.0;
     gl_Position = viewProj * vec4(position, 1.0);
 }`;    
 
@@ -394,35 +394,14 @@ const BALL_RANGE = 0.9;
 
 // Generic quad vertex shader
 let quadShader = app.createShader(PicoGL.VERTEX_SHADER, quad_vs);
-
 let constraintShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_constraint_fs);
-
-//console.log(constraintShader);
-
-
 let normalShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_normal_fs);
 let forceShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_force_fs);
-
 let cutShader = app.createShader(PicoGL.FRAGMENT_SHADER, update_cut_fs);
-
-
-
-// Update wind and gravity forces
-//let updateForceFsSource = document.getElementById("update-force-fs").text.trim();
-
-// Apply structural and shear constraints
-//let updateConstraintFsSource = document.getElementById("update-constraint-fs").text.trim();
-// Check for collision with ball
-//let updateCollisionFsSource = document.getElementById("update-collision-fs").text.trim();
-// Calculate normals
-//let updateNormalFsSource = document.getElementById("update-normal-fs").text.trim();
 
 // Generic phong shader used for drawing
 let phongShader = app.createShader(PicoGL.FRAGMENT_SHADER, phong_fs);
 
-
-// Draw cloth
-//let clothVsSource = document.getElementById("cloth-vs").text.trim();
 
 
 ////////////////////
@@ -674,18 +653,6 @@ let updateShear4Uniforms = app.createUniformBuffer([
 .update();
 
 
-let windowUniforms = app.createUniformBuffer([
-    PicoGL.FLOAT,
-    PicoGL.FLOAT,
-    PicoGL.FLOAT,
-    PicoGL.FLOAT
-])
-.set(0, rect.width)
-.set(1, rect.height)
-.set(2, rect.left)
-.set(3, rect.bottom)
-.update();
-
 
 
 let projMatrix = mat4.create();
@@ -800,7 +767,7 @@ Promise.all([
 
     let cutDrawCall = app.createDrawCall(cutProgram, quadArray)
     .uniformBlock("SceneUniforms", sceneUniformBuffer)
-    .uniformBlock("WindowUniforms", windowUniforms)
+    //.uniformBlock("WindowUniforms", windowUniforms)
 
   
 
@@ -819,8 +786,6 @@ Promise.all([
         }
         
         timer.start();
-
-
 
         updateForceDrawCall.texture("uPositionBuffer", positionTextureA);
         updateForceDrawCall.texture("uOldPositionBuffer", oldPositionTextureA);
@@ -889,7 +854,6 @@ Promise.all([
 
             cutDrawCall.texture("uPositionBuffer", positionTextureA);
 
-            locked = false;
 
             cutFramebuffer.colorTarget(0, cutTexture);
 

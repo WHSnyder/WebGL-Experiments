@@ -24,173 +24,46 @@ function readOBJFile(fileName, scale, reverse) {
   return onReadOBJFile(request.responseText, fileName, scale, reverse);
 }
 
-
-
-
-
-var ripple_vs = `#version 300 es
-#define M_PI 3.1415926535897932384626433832795
-
-precision highp float;
-
-layout(std140, column_major) uniform;
-
-layout(location=0) in vec3 vertpos;
-layout(location=1) in vec3 normal;
-
-
-uniform FrameUniforms {
-
-	float flag;
-
-	mat4 viewmat;
-	mat4 frustmat;
-
-	float timevar;
-};
-
-
-uniform ClickData {
-	
-	float clicktime;
-	vec3 clickpos;
-};
-
-
-out vec4 color;
-
-
-
-void main(){
-
-    float speed = 4.0;
-    float dietime = 10.0;
-
-    vec3 vertposnormed = normalize(vertpos);
-
-
-    float timediff = timevar - clicktime;
-
-    float wavedist = speed * timediff;
-
-    float between = abs(acos(dot(vertposnormed, normalize(clickpos))));
-
-    float vertdist = (between / M_PI) * 6.7 * 2.0;
-
-    float damp = clamp(1.0 - (timediff/dietime),0.0,1.0);
-
-    float mag = damp * cos(1.3 * (vertdist - wavedist));
-
-
-    float tst = 0.0;
-
-    if (vertdist - wavedist > 1.5){
-    	mag = 0.0;
-    }
-
-    if (timediff > dietime){
-    	//mag = 0.0;
-    }
-
-    vec3 newvertpos = vec3(10.0 * mag * vec3(1.0,1.0,1.0) + 6.0*vertpos);
-
-    vec3 lcolor = vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
-
-
-    color = vec4(mag * lcolor);
-
-    
-    if (flag < 0.0){
-        color = clamp(mag, 0.0, 1.0) * vec4(1.0, 1.0, 1.0,0.0) + color);
-    }
-    
-
-    gl_Position = frustmat * viewmat * vec4(newvertpos, 1.0);
-    gl_PointSize = 20.0;
-}`;
-
-
-var simpler_ripple_vs = `#version 300 es
-#define M_PI 3.1415926535897932384626433832795
-
-precision highp float;
-
-layout(std140, column_major) uniform;
-
-layout(location=0) in vec3 vertpos;
-layout(location=1) in vec3 normal;
-
-uniform FrameUniforms {
-	mat4 viewmat;
-	mat4 frustmat;
-	float timevar;
-};
-
-uniform ClickData {
-	float clicktime;
-	vec3 clickpos;
-};
-
-out vec4 color;
-
-void main(){
-
-    float speed = 0.5;
-    float dist = speed * (timevar - clicktime);
-
-    float dot_adjusted = 1.0 + dot(normalize(normal), normalize(clickpos));
-    float dot_vert = 1.0 - dot(normalize(vertpos), normalize(clickpos));
-
-    float mag = clamp(1.0 - abs(dist - dot_adjusted), 0.0, 1.0); 
-    float mag_vert = clamp(1.0 - abs(dist - dot_vert), 0.0, 1.0); 
-
-    vec3 lcolor = abs(normalize(clickpos)); //vec3(abs(cos(timevar/2.0)), 0.0, abs(sin(timevar/2.0)));
-    color = vec4(mag * lcolor, 1.0);
-
-    vec3 newvertpos = vec3(15.0 * mag_vert * vec3(1.0,1.0,1.0) + 6.0*vertpos);
-    gl_Position = frustmat * viewmat * vec4(newvertpos, 1.0);
-}`;
-
-
-
-var ripple_fs = `#version 300 es
-precision highp float;
-
-in vec4 color;
-
-out vec4 fragColor;
-
-void main() {
-    fragColor = color;// + addit;    
-}`;
-
-
-var picking_vs = `#version 300 es
+var vox_vs = 
+`#version 300 es
+        
+uniform mat4 orthomat;
 
 layout(location=0) in vec4 aPosition;
-        
-uniform mat4 viewmat;
-uniform mat4 frustmat;
-uniform mat4 modelmat;
-    
+layout(location=1) in vec3 aNormal;
+
+layout(std140, column_major)
+
+out vec3 vNormal;
+
 void main() {
-    gl_Position = frustmat * viewmat * modelmat * vec4(2.0 * aPosition.xyz,1.0);
+
+	gl_Position = orthomat * aPosition;
+	vPosition = vec3(uModelMatrix * aPosition);
+	vNormal = vec3(uModelMatrix * vec4(aNormal, 0.0));
 }`;
 
 
-var picking_fs =  `#version 300 es
+var vox_fs = 
+`#version 300 es
 
 precision highp float;
 
-uniform vec3 uPickColor;
+in vec3 vNormal;
+
+
 out vec4 fragColor;
 
 void main() {
-    fragColor = vec4(uPickColor, 1.0);
- }`;    
+	fragColor = vec4(vNormal, 1.0);
+}`;
 
 
-var main_vs = `#version 300 es
+
+
+
+var main_vs = 
+`#version 300 es
         
 uniform mat4 frustmat;
 
@@ -211,71 +84,51 @@ uniform FrameUniforms {
         
 out vec3 vPosition;
 out vec3 vNormal;
-out vec2 vTexCoord;
 
 void main() {
 
 	gl_Position = frustmat * viewmat * uModelMatrix * aPosition;
 	vPosition = vec3(uModelMatrix * aPosition);
 	vNormal = vec3(uModelMatrix * vec4(aNormal, 0.0));
-	vTexCoord = aTexCoord;
 }`;
 
 
-var main_fs = `#version 300 es
+var main_fs = 
+`#version 300 es
 
 precision highp float;
 
-/*uniform SceneUniforms {
+uniform SceneUniforms {
 	vec4 uLightPosition;
 	vec4 uEyePosition;
-};*/
-
-uniform ClickData {
-	float clicktime;
-	vec3 clickpos;
 };
 
 uniform FrameUniforms {
-
 	mat4 viewmat;
 	mat4 uModelMatrix;
 	vec4 uHighlightColor;
 };
-        
-//uniform sampler2D uTextureMap;
-
-uniform float timevar;
 
 in vec3 vPosition;
 in vec3 vNormal;
-in vec2 vTexCoord;
+
 out vec4 fragColor;
 
 void main() {
 
-	float speed = 0.5;
-    float dist = speed * (timevar - clicktime);
-
-    float dot_click = -1.0 + dot(normalize(vNormal), normalize(clickpos));
-
-    float mag = 5.0 * clamp(1.0 - abs(dist + dot_click), 0.0, 1.0); 
-
-
-	vec4 baseColor = vec4(mag * abs(normalize(clickpos)), 1.0);//vec4(0.2,0.2,0.2,1.0);
+	vec4 baseColor = vec4(0.4,0.2,0.4,1.0);
 	vec3 normal = normalize(vNormal);
 
-	//vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
+	vec3 eyeDirection = normalize(uEyePosition.xyz - vPosition);
 
-	//vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
-	//vec3 reflectionDirection = reflect(-lightDirection, normal);
+	vec3 lightDirection = normalize(uLightPosition.xyz - vPosition);
+	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	
-	//float nDotL = max(dot(lightDirection, normal), 0.0);
+	float nDotL = max(dot(lightDirection, normal), 0.0);
 
-
-	//float diffuse = mag;
+	float diffuse = 1.0;
 	float ambient = 0.1;
-	//float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
+	float specular = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 20.0);
 	fragColor = vec4(ambient * baseColor.rgb, baseColor.a);
 }`;
 
@@ -284,6 +137,16 @@ void main() {
 var frust = mat4.create();
 mat4.perspective(frust, Math.PI/2, 4/3, .1, null);
 var cont = 0;
+
+
+var slices = []
+
+
+var vox_ortho = mat4.create();
+mat4.ortho(vox_ortho, -5, 5, -5, 5, )
+
+
+
 
 var mouseX, mouseY;
 

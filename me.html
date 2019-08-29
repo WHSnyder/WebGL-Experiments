@@ -1,0 +1,169 @@
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="me.css">
+	</head>
+
+	<body>
+
+		<div id="name">
+			<h1>
+				Will Snyder
+			</h1>
+
+			<img src="./images/git.png" style="border-radius: 50%; background-color: transparent; box-shadow: 2px 3px 5px 0 rgba(0, 0, 0, 0.2), 0 12px 30px 0 rgba(0, 0, 0, 0.19);"/>
+		</div>
+
+		<div id="goods">
+
+			<div id="about" style="position: absolute; float: left; z-index: 3;transition-delay: 0.0s; opacity: 1.0;">
+				
+				Hi, I recently graduated from UMD: College Park. I'm interested in too many things.
+			</div>
+
+
+			<div id="projects" style="position: absolute; float: left; z-index: 4; opacity: 1.0;">
+				<div class="project" onclick="window.location.href='https://www.youtube.com/watch?v=x7sWHIO9aA8&t=5s'">
+					<img src="./images/hunted.png" class="project_image"/>
+					<!--<h4 style="margin-left: auto; margin-right: auto;">Survival game featuring realistic audio occlusion</h4>-->
+				</div>
+
+				<div class="project" onclick="window.location.href='./cut.html'">
+					<img src="./images/cloth.png" class="project_image"/>
+				</div>
+			</div>	
+
+
+			<div id="questions" style="position: absolute; float: left; z-index: 2; transition-delay: 0.0s; opacity: 0.0;">
+				 Having only recently dove into GPU programming, it's really got me thinking about paralellism and SIMD architectures.  If the delay/forced flush involved with reading back from a GPU wasn't a performance death wish, new possibilities would balloon.  So are there any promising experiments   The implications for gaming and machine learning are the first to come to mind, but I assume such a paradigm shift isn't relevant to consumer markets...         
+				<br>
+<br>
+				The HoloLens spatial mapping system creates a pretty accurate mesh overlay of the room.  That much is clear, but it seems too accurate to me.  I dont need a mesh of triangles to represent a rectangular table with nothing on it, I only need 12, practically only 2.  The HoloLens 2 seems to have built in DL capabilities for semantic object recognition, but would a "shape classifier" be better?  I'm interested in CNN-based approaches to filtering spatial maps           
+				
+			</div>
+
+
+			<object id="resume" style="position: relative; float: left; z-index: 1; box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2), 0 12px 30px 0 rgba(0, 0, 0, 0.19); opacity: 0.0;" data="./thegoods/resume_ws.pdf" type="application/pdf" width="100%" height="100%">
+  				<p>Alternative text - include a link <a href="myfile.pdf">to the PDF!</a></p>
+			</object>
+		</div>
+
+
+		<div id="opts">
+
+			<h3 id="about_opt" style="margin-top: 15%;">About Me</h3>
+			<h3 id="projects_opt" style="margin-top: 15%;">Projects</h3>
+			<h3 id="resume_opt" style="margin-top: 15%;">Resume</h3>
+			<h3 id="questions_opt" style="margin-top: 15%;">On My Mind</h3>
+
+		</div>		
+	</body>
+
+
+	<script type="text/javascript">
+		
+	var about_opt = document.getElementById("about_opt");
+	var about = document.getElementById("about");
+
+	var questions_opt = document.getElementById("questions_opt");
+	var questions = document.getElementById("questions");
+
+	var resume_opt = document.getElementById("resume_opt");
+	var resume = document.getElementById("resume");
+
+	var projects_opt = document.getElementById("projects_opt");
+	var projects = document.getElementsByClassName("project")
+
+	var current = "about";
+	var currEl = about;
+
+	var fadeFunctions = {};
+
+
+	function fadeNormal(el){
+		el.style.transition = "0.5s ease-in-out";
+		el.style.opacity = 0.0;
+	}
+
+	function fadeProjects(projs){
+
+		for (let project of projs){
+			project.style.opacity = "0.0";
+		}
+	}
+
+	
+
+	function loadProjects(){
+
+		fadeFunctions[current](currEl);
+		//fadeResume()
+
+		let delay = 0.0;
+
+		for (let project of projects){
+			project.style.transitionDelay = delay.toString() + "s";
+			project.style.opacity = "1.0";
+
+			delay += 0.08
+		}
+
+		current = "projects";
+		currEl = projects
+	}
+
+	function loadResume(){
+
+		fadeFunctions[current](currEl);
+		//fadeProjects()
+
+		resume.style.transition = "1.0s ease-in-out";
+		resume.style.opacity = 1.0;		
+
+		current = "resume";
+		currEl = resume;
+
+	}
+
+	function loadAbout(){
+
+		fadeFunctions[current](currEl);
+
+		about.style.transition = "1.0s ease-in-out";
+		about.style.opacity = 1.0;
+
+		current = "about";
+		currEl = about;
+	}
+
+
+	function loadQuestions(){
+
+		fadeFunctions[current](currEl);
+
+		questions.style.transition = "1.0s ease-in-out";
+		questions.style.opacity = 1.0;
+
+		current = "questions";
+		currEl = questions;
+	}
+
+	fadeFunctions = {"resume": fadeNormal, "projects": fadeProjects, "about": fadeNormal, "questions": fadeNormal}
+
+	projects_opt.onmouseover = loadProjects;
+	resume_opt.onmouseover = loadResume;
+	about_opt.onmouseover = loadAbout;
+	questions_opt.onmouseover = loadQuestions;
+
+	projects_opt.onclick = loadProjects;
+	resume_opt.onclick = loadResume;
+	about_opt.onclick = loadAbout;
+	questions_opt.onclick = loadQuestions;
+
+
+
+	</script>
+</html>
+
+
+
+
