@@ -19,9 +19,15 @@ var down = false,up = false;
 var lastX = 0,lastY = 0;
 
 
+
 function getClipCoords(pageX, pageY){
 
     let test = vec2.fromValues(pageX, pageY);
+    let rect = canvas.getBoundingClientRect();
+
+    window_offset = vec2.fromValues(rect.left, rect.bottom);
+    window_scale = vec2.fromValues(rect.width, rect.height);
+
     vec2.sub(clip_coords, test, window_offset);
     vec2.div(clip_coords, clip_coords, window_scale);
 
@@ -55,7 +61,6 @@ function trackMovement(e){
 
 
 function updateClick(){
-
     clicktime = performance.now()/1000;
     vec3.add(clickpos, player.focusVec, player.eyePt);
 
@@ -79,7 +84,6 @@ function mouseHandler(e){
         deltamX = e.pageX - mouseX;
         deltamY = e.pageY - mouseY;
     }
-
     mouseX = e.pageX;
     mouseY = e.pageY;
 }
@@ -87,11 +91,17 @@ function mouseHandler(e){
 
 function updateRect(){
 
-    console.log("updated...")
+    let canvas1 = document.getElementById("view");
+    let rect1 = canvas1.getBoundingClientRect();
+    window_offset = vec2.fromValues(rect1.left, rect1.bottom);
+    window_scale = vec2.fromValues(rect1.width, rect1.height);
 
-    rect = canvas.getBoundingClientRect();
-    window_offset = vec2.fromValues(rect.left, rect.bottom);
-    window_scale = vec2.fromValues(rect.width, rect.height);
+    console.log("rec update to (w by h)..." + rect1.width + " x " + rect1.height);
+
+    mat4.perspective(projMatrix, Math.PI / 2, rect1.width / rect1.height, 0.9, 2.5);
+
+    mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
+    sceneUniformBuffer.set(0, viewProjMatrix);
 }
 
 
@@ -105,17 +115,14 @@ keyMap.set(71, false);//go
 keyMap.set(84, false);//terminate
 
 function keydown(event) {
-    
     if (event.keyCode == 71 && !keyMap.get(71)){
         cont = 1;
         console.log("pressed g...");
-
         window.requestAnimationFrame(updateWorld);
     }
     else if (event.keyCode == 84){
         cont = 0;
         keyMap.set(71, false);
-        //updateRect();
     }
     else if (event.keyCode == 87){
         //updatefps = 1;
@@ -126,13 +133,11 @@ function keydown(event) {
 
 
 function keyup(event) {
-
     if (event.keyCode != 71){
         keyMap.set(event.keyCode, false);
     }
 }
 
-updateRect()
 
 window.addEventListener("keydown", keydown, false);
 window.addEventListener("keyup", keyup, false);
@@ -145,6 +150,7 @@ if (mode == 1){
         console.log("WebGL coords, from: " + getClipCoords(event.pageX, event.pageY));
     }, false);
     window.onresize = updateRect;
+    canvas.addEventListener("resize", updateRect);
     window.addEventListener("mousemove", trackMovement, false);
 }
 else {

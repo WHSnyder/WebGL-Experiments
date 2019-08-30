@@ -4,11 +4,6 @@ FOR THIS WONDERFUL LIBRARY AND CLOTH SIMULATION.
 
 All code here except the cutting additions was written by him and I only added
 minor changes to the .
-
-
-
-
-
 */
 
 
@@ -243,24 +238,6 @@ void main() {
 
     vec2 rej = screenVector - cutVector * dot(cutVector, screenVector)/dot(cutVector, cutVector);
 
-
-
-    /*
-
-    float cutLength = length(cutVector);
-    float screenLength = length(screenVector);
-
-    float between = dot(cutVector, screenVector)/(cutLength * screenLength);
-     
-
-    if (abs(1.0 - between) <= 0.1 && screenLength < cutLength){
-        mark = vec3(1.0,0.0,0.0);
-    }
-    else {
-        discard;
-    } */
-
-
     if (length(rej) < .01 && length(screenVector) < length(cutVector) ){// && (dot(cutVector, screenVector)/(length(cutVector) * length(screenVector))) > .95){
         mark = vec3(1.0,0.0,0.0);
     }
@@ -283,7 +260,6 @@ uniform sampler2D uNormalBuffer;
 uniform sampler2D uCutBuffer;
 
 layout(std140, column_major) uniform SceneUniforms {
-    
     mat4 viewProj;
     vec4 lightPosition;
 };
@@ -304,7 +280,7 @@ void main() {
     cut = 1.0;
 
     if (cutStatus.x == 1.0){
-        cut = 0.0;
+        cut = -5000.0;
     }
 
     vPosition = position;
@@ -655,21 +631,21 @@ let updateShear4Uniforms = app.createUniformBuffer([
 
 
 
-let projMatrix = mat4.create();
-mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 3.0);
+var projMatrix = mat4.create();
+mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.9, 2.5);
 
-let viewMatrix = mat4.create();
+var viewMatrix = mat4.create();
 
 let eyePosition = vec3.fromValues(0.0, 0.0, 1.2);
 mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 1.0, 0), vec3.fromValues(0, 1, 0));
 
-let viewProjMatrix = mat4.create();
+var viewProjMatrix = mat4.create();
 mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
 
 let lightPosition = vec3.fromValues(1, 1, 1);
 
 
-let sceneUniformBuffer = app.createUniformBuffer([
+var sceneUniformBuffer = app.createUniformBuffer([
     PicoGL.FLOAT_MAT4,
     PicoGL.FLOAT_VEC4
 ])
@@ -716,9 +692,6 @@ Promise.all([
     let updateForceDrawCall = app.createDrawCall(updateForceProgram, quadArray)
     .texture("uPositionBuffer", positionTextureA)
     .texture("uNormalBuffer", normalTexture);
-
-
-
 
     // Structural constraints
     let updateHorizontal1DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
@@ -849,11 +822,9 @@ Promise.all([
 
         if (mouseData[0] != null){
 
-            cutDrawCall.uniform("cutStart", mouseData[0])
-            cutDrawCall.uniform("cutEnd", mouseData[1])
-
+            cutDrawCall.uniform("cutStart", mouseData[0]);
+            cutDrawCall.uniform("cutEnd", mouseData[1]);
             cutDrawCall.texture("uPositionBuffer", positionTextureA);
-
 
             cutFramebuffer.colorTarget(0, cutTexture);
 
@@ -863,6 +834,7 @@ Promise.all([
             cutDrawCall.draw();
 
             mouseData[0] = null;
+            reset = true;
         }
 
 
