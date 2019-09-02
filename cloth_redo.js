@@ -4,6 +4,11 @@ FOR THIS WONDERFUL LIBRARY AND CLOTH SIMULATION.
 
 All code here except the cutting additions was written by him and I only added
 minor changes to the .
+
+
+
+
+
 */
 
 
@@ -260,6 +265,7 @@ uniform sampler2D uNormalBuffer;
 uniform sampler2D uCutBuffer;
 
 layout(std140, column_major) uniform SceneUniforms {
+    
     mat4 viewProj;
     vec4 lightPosition;
 };
@@ -280,7 +286,7 @@ void main() {
     cut = 1.0;
 
     if (cutStatus.x == 1.0){
-        cut = -5000.0;
+        cut = 0.0;
     }
 
     vPosition = position;
@@ -342,13 +348,15 @@ if (!testExtension("EXT_color_buffer_float")) {
     document.body.innerHTML = "This example requires extension <b>EXT_color_buffer_float</b> which is not supported on this system."
 }
 
-let canvas = document.getElementById("view");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+var canvas = document.getElementById("view");
+var notes = document.getElementById("notes");
+
+
+
 
 
 var rect = canvas.getBoundingClientRect();
-console.log(rect)
+//console.log(rect)
 
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
@@ -361,8 +369,7 @@ const DATA_TEXTURE_DIM = 60;
 const NUM_PARTICLES = DATA_TEXTURE_DIM * DATA_TEXTURE_DIM;
 const STRUCTURAL_REST = 1 / DATA_TEXTURE_DIM;
 const SHEAR_REST = Math.sqrt(2 * STRUCTURAL_REST * STRUCTURAL_REST);
-const BALL_RADIUS = 0.15;
-const BALL_RANGE = 0.9;
+
 
 ///////////////////
 // PROGRAMS
@@ -508,6 +515,8 @@ let cutTexture = app.createTexture2D(cutDefaultData, DATA_TEXTURE_DIM, DATA_TEXT
 
 
 
+
+
 /////////////////////////
 // GEOMETRY FOR DRAWING
 /////////////////////////
@@ -532,10 +541,13 @@ let dataIndex = app.createVertexBuffer(PicoGL.SHORT, 2, dataTextureIndex);
 let uv = app.createVertexBuffer(PicoGL.FLOAT, 2, uvData);
 let indices = app.createIndexBuffer(PicoGL.UNSIGNED_SHORT, 3, indexData);
 
+
+
 let clothArray = app.createVertexArray()
 .vertexAttributeBuffer(0, dataIndex)
 .vertexAttributeBuffer(1, uv)
 .indexBuffer(indices);
+
 
 
 
@@ -624,21 +636,108 @@ let updateShear4Uniforms = app.createUniformBuffer([
 .update();
 
 
-var projMatrix = mat4.create();
-mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.9, 2.5);
 
-var viewMatrix = mat4.create();
+
+
+/*Z-fighting extensions
+let updateHorizontal1Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([1, 0]))
+.set(1, 0)
+.set(2, STRUCTURAL_REST)
+.update();
+
+let updateHorizontal2Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([1, 0]))
+.set(1, 1)
+.set(2, STRUCTURAL_REST)
+.update();
+
+let updateVertical1Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([0, 1]))
+.set(1, 0)
+.set(2, STRUCTURAL_REST)
+.update();
+
+let updateVertical2Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([0, 1]))
+.set(1, 1)
+.set(2, STRUCTURAL_REST)
+.update();
+
+let updateShear1Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([1, 1]))
+.set(1, 0)
+.set(2, SHEAR_REST)
+.update();
+
+let updateShear2Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([1, 1]))
+.set(1, 1)
+.set(2, SHEAR_REST)
+.update();
+
+let updateShear3Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([1, -1]))
+.set(1, 0)
+.set(2, SHEAR_REST)
+.update();
+
+let updateShear4Uniforms = app.createUniformBuffer([
+    PicoGL.INT_VEC2,
+    PicoGL.INT,
+    PicoGL.FLOAT
+])
+.set(0, new Int32Array([1, -1]))
+.set(1, 1)
+.set(2, SHEAR_REST)
+.update();
+*/
+
+
+
+let projMatrix = mat4.create();
+mat4.perspective(projMatrix, Math.PI / 2, rect.width / rect.height, 0.1, 3.0);
+
+let viewMatrix = mat4.create();
 
 let eyePosition = vec3.fromValues(0.0, 0.0, 1.2);
 mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 1.0, 0), vec3.fromValues(0, 1, 0));
 
-var viewProjMatrix = mat4.create();
+let viewProjMatrix = mat4.create();
 mat4.multiply(viewProjMatrix, projMatrix, viewMatrix);
 
 let lightPosition = vec3.fromValues(1, 1, 1);
 
 
-var sceneUniformBuffer = app.createUniformBuffer([
+let sceneUniformBuffer = app.createUniformBuffer([
     PicoGL.FLOAT_MAT4,
     PicoGL.FLOAT_VEC4
 ])
@@ -651,7 +750,8 @@ let targetZ = null;
 let targetY = null;
 
 
-var updateWorld = function(){};
+
+
 
 Promise.all([
 
@@ -685,6 +785,9 @@ Promise.all([
     let updateForceDrawCall = app.createDrawCall(updateForceProgram, quadArray)
     .texture("uPositionBuffer", positionTextureA)
     .texture("uNormalBuffer", normalTexture);
+
+
+
 
     // Structural constraints
     let updateHorizontal1DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
@@ -741,7 +844,7 @@ Promise.all([
     /////////
     // DRAW
     /////////
-    updateWorld = function() {
+    var updateWorld = function() {
         
         if (cont == 0){
             return;
@@ -771,42 +874,42 @@ Promise.all([
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateHorizontal1DrawCall.texture("uPositionBuffer", positionTextureB)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateHorizontal2DrawCall.texture("uPositionBuffer", positionTextureA)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateVertical1DrawCall.texture("uPositionBuffer", positionTextureB)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateVertical2DrawCall.texture("uPositionBuffer", positionTextureA)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateShear1DrawCall.texture("uPositionBuffer", positionTextureB)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateShear2DrawCall.texture("uPositionBuffer", positionTextureA)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();    
             
             updateFramebuffer.colorTarget(0, positionTextureA);
             updateShear3DrawCall.texture("uPositionBuffer", positionTextureB)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();
             
             updateFramebuffer.colorTarget(0, positionTextureB);
             updateShear4DrawCall.texture("uPositionBuffer", positionTextureA)
-            //.texture("uCutBuffer", cutTexture)
+            .texture("uCutBuffer", cutTexture)
             .draw();   
         }
 
@@ -815,19 +918,18 @@ Promise.all([
 
         if (mouseData[0] != null){
 
-            cutDrawCall.uniform("cutStart", mouseData[0]);
-            cutDrawCall.uniform("cutEnd", mouseData[1]);
+            cutDrawCall.uniform("cutStart", mouseData[0])
+            cutDrawCall.uniform("cutEnd", mouseData[1])
             cutDrawCall.texture("uPositionBuffer", positionTextureA);
 
             cutFramebuffer.colorTarget(0, cutTexture);
 
-            console.log("yea here...")
+            console.log("Cutting from: " + mouseData[0] + " to " + mouseData[1]);
 
             app.drawFramebuffer(cutFramebuffer);
             cutDrawCall.draw();
 
             mouseData[0] = null;
-            reset = true;
         }
 
 
@@ -840,7 +942,6 @@ Promise.all([
         clothDrawCall.texture("uPositionBuffer", positionTextureA)
         .texture("uCutBuffer", cutTexture)
 
-
         app.defaultViewport().defaultDrawFramebuffer().clear();
         
         clothDrawCall.draw();
@@ -852,4 +953,153 @@ Promise.all([
         timer.end();
         requestAnimationFrame(updateWorld);
     }
+
+
+    var current_time = 0;
+
+	var window_offset = vec2.fromValues(rect.left, rect.bottom);
+	var window_scale = vec2.fromValues(rect.width, rect.height);
+	var clip_coords = vec2.create();
+
+	var dir = 0;
+	var n = 0;
+
+	var currTime, timePassed;
+	var clicktime = 0;
+	var clickpos = vec3.fromValues(0.0,0.0,6.7);
+
+	var mouseInitialized = false;
+	var deltamX = 0, delatmY = 0;
+	var mouseRead = false;
+
+	var down = false,up = false;
+	var lastX = 0,lastY = 0;
+
+
+	function getClipCoords(pageX, pageY){
+
+	    let test1 = vec2.fromValues(pageX, pageY);
+	    vec2.sub(clip_coords, test1, window_offset);
+	    vec2.div(clip_coords, clip_coords, window_scale);
+
+	    vec2.multiply(clip_coords, clip_coords, vec2.fromValues(2,-2));
+	    vec2.sub(clip_coords, clip_coords, vec2.fromValues(1,1));
+
+	    return clip_coords;
+	}
+
+
+	function trackMovement(e){
+
+	    if (down){
+	        let init = getClipCoords(e.pageX, e.pageY)
+
+	        if (reset){
+	            mouseData[0] = init;
+	            mouseData[1] = init;
+	            reset = false;
+	        }
+	        else if (mouseData[0] == null){
+	            mouseData[0] = vec2.clone(mouseData[1]);
+	            mouseData[1] = init;
+	        }
+	        else {
+	            mouseData[1] = init;
+	        }
+	    }
+	}
+
+
+
+	function updateClick(){
+
+	    clicktime = performance.now()/1000;
+	    vec3.add(clickpos, player.focusVec, player.eyePt);
+
+	    clickData.set(0, clicktime)
+		.set(1, clickpos)
+		.update()
+	}
+
+
+
+	function mouseHandler(e){
+
+	    mouseRead = false;
+
+	    if (!mouseInitialized){
+	        deltamX = 0;
+	        deltamY = 0;
+	        mouseInitialized = true;
+	    }
+	    else {
+	        deltamX = e.pageX - mouseX;
+	        deltamY = e.pageY - mouseY;
+	    }
+
+	    mouseX = e.pageX;
+	    mouseY = e.pageY;
+	}
+
+
+	function updateRect(){
+
+	    console.log("updated...")
+
+	    rect = canvas.getBoundingClientRect();
+	    window_offset = vec2.fromValues(rect.left, rect.bottom);
+	    window_scale = vec2.fromValues(rect.width, rect.height);
+
+	    reset = true;
+	}
+
+
+	var keyMap = new Map();
+
+	keyMap.set(87, false);//forward
+	keyMap.set(65, false);//left
+	keyMap.set(68, false);//right
+	keyMap.set(83, false);//backward
+	keyMap.set(71, false);//go
+	keyMap.set(84, false);//terminate
+
+	function keydown(event) {
+	    
+	    if (event.keyCode == 71 && !keyMap.get(71)){
+	        cont = 1;
+	        //console.log("pressed g...");
+
+	        window.requestAnimationFrame(updateWorld);
+	    }
+	    else if (event.keyCode == 84){
+	        cont = 0;
+	        keyMap.set(71, false);
+	        //updateRect();
+	    }
+	    else if (event.keyCode == 87){
+	    }
+	    keyMap.set(event.keyCode, true);
+	}
+
+
+	function keyup(event) {
+
+	    if (event.keyCode != 71){
+	        keyMap.set(event.keyCode, false);
+	    }
+	}
+
+
+	window.addEventListener("keydown", keydown, false);
+	window.addEventListener("keyup", keyup, false);
+
+
+	window.addEventListener("mousedown", function(){down = true}, false);
+	window.addEventListener("mouseup", function(){down = false; reset = true}, false);
+	window.addEventListener("mousemove", trackMovement, false);
+
+
+	cont = 1;
+    requestAnimationFrame(updateWorld);
+
 });
