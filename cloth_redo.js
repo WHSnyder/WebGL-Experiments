@@ -763,7 +763,7 @@ Promise.all([
         [cloth_vs, phongShader]
     ),
 
-    utils.loadImages(["./models/dune.jpg"])
+    utils.loadImages(["./images/ea.jpg"])
 
 ]).then(([
 
