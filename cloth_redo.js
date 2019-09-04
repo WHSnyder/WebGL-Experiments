@@ -15,14 +15,14 @@ minor changes to the .
 var quad_vs = 
 `#version 300 es  
 
-layout(location=0) in vec4 aPosition;
+layout(location=0) in vec2 aPosition;
 
 out vec2 vScreenUV;
 
 void main() {
 
-    vScreenUV = aPosition.xy * 0.5 + 0.5;
-    gl_Position = aPosition;
+    vScreenUV = aPosition * 0.5 + 0.5;
+    gl_Position = vec4(aPosition,1.0,1.0);
 }`;
 
 
@@ -788,7 +788,6 @@ Promise.all([
 
 
 
-
     // Structural constraints
     let updateHorizontal1DrawCall = app.createDrawCall(updateConstraintProgram, quadArray)
     .uniformBlock("ConstraintUniforms", updateHorizontal1Uniforms)
@@ -924,7 +923,7 @@ Promise.all([
 
             cutFramebuffer.colorTarget(0, cutTexture);
 
-            console.log("Cutting from: " + mouseData[0] + " to " + mouseData[1]);
+            //console.log("Cutting from: " + mouseData[0] + " to " + mouseData[1]);
 
             app.drawFramebuffer(cutFramebuffer);
             cutDrawCall.draw();
