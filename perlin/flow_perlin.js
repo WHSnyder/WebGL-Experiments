@@ -17,7 +17,7 @@ void main(){
 
     vec4 pos = texture(dataTex, dataIndex/16.0);
 
-    gl_Position = pos;// vec4(time * pos.xyz,1.0);
+    gl_Position = pos + time * vec4(1.0,1.0,1.0,0.0);// vec4(time * pos.xyz,1.0);
     gl_PointSize = 20.0;
     color = vec4(1.0,0.0,1.0,1.0);
 } `;
@@ -76,9 +76,9 @@ layout(location=0) out vec4 position;
 void main(){
 
     vec4 pos = texture(dataTex, index);
-    vec3 velocity = 10.0 * texture(flowField, pos.xyz).xyz ;
+    vec3 velocity = 10.0 * texture(flowField, pos.xyz).xyz;
 
-    position = vec4((pos.xyz + velocity),1.0);
+    position = vec4((pos.xyz + .01 * vec3(1.0,1.0,1.0)),1.0);
 }`;
 
 
@@ -91,6 +91,11 @@ void main(){
 
 
 utils.addTimerElement();
+
+
+if (!testExtension("EXT_color_buffer_float")) {
+    document.body.innerHTML = "This example requires extension <b>EXT_color_buffer_float</b> which is not supported on this system."
+}
 
 let canvas = document.getElementById("view");
 //canvas.width = window.innerWidth;
@@ -220,9 +225,9 @@ var flag = false;
 
 var time = performance.now();
 
-app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([program]) => {
+app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([program, updateProgram]) => {
     
-    let updatePositionCall = app.createDrawCall(program, quadArray)
+    let updatePositionCall = app.createDrawCall(updateProgram, quadArray)
     .primitive(PicoGL.TRIANGLES)
     .texture("dataTex", dataTex)
     .texture("flowField", noiseTex);
@@ -230,14 +235,14 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
 
     let drawCall = app.createDrawCall(program, points)
     .primitive(PicoGL.POINTS)
-    .texture("dataTex", updateTex);
+    .texture("dataTex", dataTex);
 
     app.defaultViewport();
     app.defaultDrawFramebuffer();
     app.clear();
 
 
-    //drawCall.uniform("time", 1.0);
+    drawCall.uniform("time", 0.0);
     drawCall.draw();
 
 
@@ -247,7 +252,7 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
 
     function draw() {
 
-        let timeDiff = (performance.now - time)/1000;
+        let timeDiff = (performance.now() - time)/1000;
         
         if (timer.ready()) {
            
@@ -257,25 +262,30 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
         timer.start();
 
         app.viewport(0, 0, dim, dim);
-        app.drawFramebuffer(updateFramebuffer);
 
         if (!flag){
             updatePositionCall.texture("dataTex", dataTex)
             updateFramebuffer.colorTarget(0, updateTex);
 
-            drawCall.texture("dataTex", updateTex);
-            flag = true;
         }
         else {
             updatePositionCall.texture("dataTex", updateTex)
             updateFramebuffer.colorTarget(0, dataTex);
 
-            drawCall.texture("dataTex", dataTex);
-            flag = false;
         }
 
+        app.drawFramebuffer(updateFramebuffer);
         updatePositionCall.draw();
 
+
+        if (!flag){
+            drawCall.texture("dataTex", updateTex);
+        }
+        else {
+            drawCall.texture("dataTex", dataTex);
+        }
+
+        flag = !flag;
 
         app.defaultViewport();
         app.defaultDrawFramebuffer();
