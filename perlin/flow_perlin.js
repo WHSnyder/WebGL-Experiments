@@ -180,7 +180,8 @@ precision highp sampler3D;
 uniform sampler2D dataTex;
 uniform sampler3D velTex;
 
-uniform mat4 mvp;
+uniform mat4 view;
+uniform mat4 frust;
 
 layout(location=0) in vec2 dataIndex;
 
@@ -199,15 +200,15 @@ vec3 toTex(vec3 worldPosition){
 
 void main(){
 
-    vec4 pos = texture(dataTex, dataIndex/16.0);
+    vec4 pos = texture(dataTex, dataIndex/32.0);
 
     pos = vec4(toWorld(pos.xyz),1.0);
 
-    gl_Position = mvp * pos;
-    gl_PointSize = 20.0;
+    gl_Position = frust * view * pos;
+    gl_PointSize = 10.0;
 
-    //color = vec4(normalize(toWorld(texture(velTex, pos.xyz).rgb)),1.0);
-    color = pos;
+    color = vec4(normalize(texture(velTex, toTex(pos.xyz)).rgb),1.0);
+    //color = vec4(toTex(pos.xyz), 1.0);
 } `;
 
 
@@ -226,7 +227,7 @@ void main(){
 
     fragColor = color;
 
-    if (length(gl_PointCoord) > 1.0){
+    if (length(2.0 * gl_PointCoord - 1.0) > 0.5){
         discard;
     }
 } `;
@@ -265,7 +266,6 @@ in vec2 index;
 layout(location=0) out vec4 position;
 
 
-
 vec3 toWorld(vec3 texPosition){
     return (2.0 * texPosition) - 1.0;
 }
@@ -275,18 +275,18 @@ vec3 toTex(vec3 worldPosition){
 }
 
 
-
 void main(){
 
     vec4 pos = texture(dataTex, index);
+    pos = vec4(toWorld(pos.xyz),1.0);
 
-    vec3 velocity = texture(flowField, pos.xyz).xyz;
+    vec3 velocity = texture(flowField, toTex(pos.xyz)).xyz;
 
-    velocity = toWorld(velocity);
+    velocity = toWorld(velocity); //keep
 
-    vec3 worldPos = pos.xyz + .001 * normalize(velocity);
+    vec3 worldPos = pos.xyz + .1 * velocity; //keep
 
-    //worldPos = toTex(worldPos);
+    worldPos = toTex(worldPos); //this wasn't working because you didnt convert it in the first place!!!
 
     position = vec4(worldPos,1.0);
 }`;
@@ -296,6 +296,11 @@ void main(){
 
 var noiseGen = new SimplexNoise(Math.random());
 
+
+var deltamX = 0;
+var deltamY = 0;
+
+var g_up = vec3.fromValues(0.0,1.0,0.0);
 
 
 utils.addTimerElement();
@@ -317,11 +322,12 @@ let app = PicoGL.createApp(canvas)
 let timer = app.createTimer();
 
 
-const dim = 16;
+const dim = 32;
 
-var NUM_PARTICLES = 256;
+var NUM_PARTICLES = 1024;
 
 let posData = new Float32Array(NUM_PARTICLES * 4);
+let velData = new Float32Array(NUM_PARTICLES * 4);
 let texIndex = 0;
 
 
@@ -335,35 +341,56 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
     posIndicies[i/2 + 1] = (i/4) % dim;
 
 
-    posData[i] =  Math.random();
-    posData[i + 1] = Math.random();
-    posData[i + 2] = Math.random();
+    posData[i] =  Math.random()/2;
+    posData[i + 1] = Math.random()/2;
+    posData[i + 2] = Math.random()/2;
     posData[i + 3] = 1.0;
 }
 
 
 
 
-const TEXTURE_DIMENSIONS = 16;
+const dim3d = 32;
 
-let textureData = new Float32Array(TEXTURE_DIMENSIONS * TEXTURE_DIMENSIONS * TEXTURE_DIMENSIONS * 4);
+let textureData = new Float32Array(dim3d * dim3d * dim3d * 4);
 let textureIndex = 0;
 
-for (let i = 0; i < TEXTURE_DIMENSIONS; ++i) {
-    for (let j = 0; j < TEXTURE_DIMENSIONS; ++j) {
-        for (let k = 0; k < TEXTURE_DIMENSIONS; ++k) {
+for (let i = 0; i < dim3d; ++i) {
+    for (let j = 0; j < dim3d; ++j) {
+        for (let k = 0; k < dim3d; ++k) {
                 
-            let iadj = i/16;
-            let jadj = j/16;
-            let kadj = k/16;
+            let iadj = 100*i;///dim3d;
+            let jadj = 100*j;///dim3d;
+            let kadj = 100*k;///dim3d;
 
             let x = (noiseGen.noise(jadj,kadj) + 1.0)/2.0;
             let y = (noiseGen.noise(iadj,kadj) + 1.0)/2.0;
             let z = (noiseGen.noise(iadj,jadj) + 1.0)/2.0;
+            /*
 
+            if (k < 1){
+                z = 1.0;
+            }
+            if (k > dim3d - 2){
+                z = 0.0;
+            }
 
-            //if (k < )
+            if (j < 1){
+                y = 1.0;
+            }
+            if (j > dim3d - 2){
+                y = 0.0;
+            }            
 
+            if (i < 1){
+                x = 1.0;
+            }
+            if (i > dim3d - 2){
+                x = 0.0;
+            }*/
+            //let x = 0.5;
+            //let y = 0.5;
+            //let z = 0.5;
 
 
             textureData[textureIndex++] = x;
@@ -379,8 +406,10 @@ for (let i = 0; i < TEXTURE_DIMENSIONS; ++i) {
 }
 
 
-let noiseTex = app.createTexture3D(textureData, TEXTURE_DIMENSIONS, TEXTURE_DIMENSIONS, TEXTURE_DIMENSIONS, { 
+let noiseTex = app.createTexture3D(textureData, dim3d, dim3d, dim3d, { 
     internalFormat: PicoGL.RGBA32F, 
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT,
     maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });
 
@@ -398,6 +427,21 @@ let updateTex = app.createTexture2D(posData, dim, dim, {
     wrapS: PicoGL.CLAMP_TO_EDGE,
     wrapT: PicoGL.CLAMP_TO_EDGE,
     internalFormat: PicoGL.RGBA32F
+});
+
+
+let velTexA  = app.createTexture2D(velData, dim, dim, { 
+    internalFormat: PicoGL.RGBA32F, 
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT,
+    maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
+});
+
+let velTexB  = app.createTexture2D(velData, dim, dim, { 
+    internalFormat: PicoGL.RGBA32F, 
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT,
+    maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });
 
 
@@ -431,7 +475,7 @@ let projMatrix = mat4.create();
 mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 30.0);
 let viewMatrix = mat4.create();
 
-let eyePosition = vec3.fromValues(-2, 0, 0);
+let eyePosition = vec3.fromValues(-4, 0, -4);
 mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
 let mvpMatrix = mat4.create();
 mat4.multiply(mvpMatrix, projMatrix, viewMatrix);
@@ -460,7 +504,8 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
     let drawCall = app.createDrawCall(program, points)
     .primitive(PicoGL.POINTS)
     .texture("dataTex", dataTex)
-    .uniform("mvp", mvpMatrix)
+    .uniform("view", player.getView())
+    .uniform("frust", projMatrix)
     .texture("velTex", noiseTex);
 
 
@@ -478,6 +523,26 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
 
 
     function draw() {
+
+
+        if (keyMap.get(65)){
+            console.log("to the left...");
+            player.move(0.1,0.0,0.0);
+        }
+
+        if (keyMap.get(68)){
+            player.move(-0.1,0.0,0.0);
+        }
+
+        if (!mouseRead){
+
+            player.rotate(player.left, deltamY/100);
+            player.rotate(g_up, -deltamX/100);
+
+            mouseRead = true;
+        }
+        playerView = player.getView()
+
 
         let timeDiff = (performance.now() - time)/1000;
         
@@ -520,12 +585,114 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
         app.clear();
 
 
-        //drawCall.uniform("time", timeDiff);
+        drawCall.uniform("view", player.getView());
         drawCall.draw();
         timer.end();
 
         requestAnimationFrame(draw);
     }
+
+    var current_time = 0;
+
+
+
+    var dir = 0;
+    var n = 0;
+
+    var currTime, timePassed;
+    var clicktime = 0;
+    var clickpos = vec3.fromValues(0.0,0.0,6.7);
+
+    var mouseInitialized = false;
+    var deltamX = 0, delatmY = 0;
+    var mouseRead = false;
+
+    var down = false,up = false;
+    var lastX = 0,lastY = 0;
+
+
+
+
+
+
+    function updateClick(){
+
+        clicktime = performance.now()/1000;
+        vec3.add(clickpos, player.focusVec, player.eyePt);
+
+        clickData.set(0, clicktime)
+        .set(1, clickpos)
+        .update()
+    }
+
+
+
+    function mouseHandler(e){
+
+        mouseRead = false;
+
+        if (!mouseInitialized){
+            deltamX = 0;
+            deltamY = 0;
+            mouseInitialized = true;
+        }
+        else {
+            deltamX = e.pageX - mouseX;
+            deltamY = e.pageY - mouseY;
+        }
+
+        mouseX = e.pageX;
+        mouseY = e.pageY;
+    }
+
+
+
+
+    var keyMap = new Map();
+
+    keyMap.set(87, false);//forward
+    keyMap.set(65, false);//left
+    keyMap.set(68, false);//right
+    keyMap.set(83, false);//backward
+    keyMap.set(71, false);//go
+    keyMap.set(84, false);//terminate
+
+    function keydown(event) {
+        
+        if (event.keyCode == 71 && !keyMap.get(71)){
+            cont = 1;
+
+            window.requestAnimationFrame(draw);
+        }
+        else if (event.keyCode == 84){
+            cont = 0;
+            keyMap.set(71, false);
+        }
+        else if (event.keyCode == 87){
+        }
+        keyMap.set(event.keyCode, true);
+    }
+
+
+    function keyup(event) {
+
+        if (event.keyCode != 71){
+            keyMap.set(event.keyCode, false);
+        }
+    }
+
+
+    window.addEventListener("keydown", keydown, false);
+    window.addEventListener("keyup", keyup, false);
+
+    window.addEventListener("mouseup", function(event) {
+        mouseX = event.clientX;
+        mouseY = event.clientY;
+        picked = true; 
+    });
+    window.addEventListener("mousemove", mouseHandler, false);
+    window.addEventListener("click", updateClick, false);
+
 
     requestAnimationFrame(draw);
 });
