@@ -178,7 +178,7 @@ precision highp sampler2D;
 precision highp sampler3D;
 
 uniform sampler2D dataTex;
-uniform sampler3D velTex;
+uniform sampler3D flowField;
 
 uniform mat4 view;
 uniform mat4 frust;
@@ -189,11 +189,13 @@ out vec4 color;
 
 
 vec3 toWorld(vec3 texPosition){
-    return (2.0 * texPosition) - 1.0;
+    //return (2.0 * texPosition) - 1.0;
+    return texPosition;
 }
 
 vec3 toTex(vec3 worldPosition){
-    return (worldPosition + 1.0)/2.0; 
+    //return (worldPosition + 1.0)/2.0; 
+    return worldPosition;
 }
 
 
@@ -207,7 +209,7 @@ void main(){
     gl_Position = frust * view * pos;
     gl_PointSize = 10.0;
 
-    color = vec4(normalize(texture(velTex, toTex(pos.xyz)).rgb),1.0);
+    color = vec4(normalize(texture(flowField, toTex(pos.xyz)).rgb),1.0);
     //color = vec4(toTex(pos.xyz), 1.0);
 } `;
 
@@ -259,19 +261,23 @@ precision highp sampler3D;
 precision highp sampler2D;
 
 uniform sampler2D dataTex;
+uniform sampler2D velTex;
 uniform sampler3D flowField;  
 
 in vec2 index;
 
 layout(location=0) out vec4 position;
+layout(location=1) out vec4 newVelocity;
 
 
 vec3 toWorld(vec3 texPosition){
-    return (2.0 * texPosition) - 1.0;
+   return (2.0 * texPosition) - 1.0;
+    //return texPosition;
 }
 
 vec3 toTex(vec3 worldPosition){
-    return (worldPosition + 1.0)/2.0; 
+    return (worldPosition + 1.0)/2.0;
+    //return worldPosition; 
 }
 
 
@@ -284,12 +290,14 @@ void main(){
 
     velocity = toWorld(velocity); //keep
 
-    vec3 worldPos = pos.xyz + .1 * velocity; //keep
+    vec3 worldPos = pos.xyz + velocity; //keep
 
     worldPos = toTex(worldPos); //this wasn't working because you didnt convert it in the first place!!!
 
+    newVelocity = vec4((velocity + texture(flowField, worldPos).xyz),1.0);
     position = vec4(worldPos,1.0);
 }`;
+
 
 
 
@@ -337,13 +345,13 @@ let posIndicies = new Float32Array(NUM_PARTICLES * 2);
 
 for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
 
-    posIndicies[i/2] = Math.floor((i/4)/dim);
-    posIndicies[i/2 + 1] = (i/4) % dim;
+    posIndicies[i/2] = (i/4) % dim;
+    posIndicies[i/2 + 1] = Math.floor((i/4)/dim);
 
 
-    posData[i] =  Math.random()/2;
-    posData[i + 1] = Math.random()/2;
-    posData[i + 2] = Math.random()/2;
+    posData[i] =  Math.random();
+    posData[i + 1] = Math.random();
+    posData[i + 2] = Math.random();
     posData[i + 3] = 1.0;
 }
 
@@ -364,10 +372,10 @@ for (let i = 0; i < dim3d; ++i) {
             let kadj = 100*k;///dim3d;
 
             let x = (noiseGen.noise(jadj,kadj) + 1.0)/2.0;
-            let y = (noiseGen.noise(iadj,kadj) + 1.0)/2.0;
-            let z = (noiseGen.noise(iadj,jadj) + 1.0)/2.0;
+            let y =(noiseGen.noise(iadj,kadj) + 1.0)/2.0;
+            let z =(noiseGen.noise(iadj,jadj) + 1.0)/2.0;
+            
             /*
-
             if (k < 1){
                 z = 1.0;
             }
@@ -392,6 +400,8 @@ for (let i = 0; i < dim3d; ++i) {
             //let y = 0.5;
             //let z = 0.5;
 
+           
+
 
             textureData[textureIndex++] = x;
             textureData[textureIndex++] = y;
@@ -413,7 +423,7 @@ let noiseTex = app.createTexture3D(textureData, dim3d, dim3d, dim3d, {
     maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });
 
-let dataTex = app.createTexture2D(posData, dim, dim, {
+let dataTexA = app.createTexture2D(posData, dim, dim, {
     minFilter: PicoGL.NEAREST,
     magFilter: PicoGL.NEAREST,
     wrapS: PicoGL.CLAMP_TO_EDGE,
@@ -421,7 +431,7 @@ let dataTex = app.createTexture2D(posData, dim, dim, {
     internalFormat: PicoGL.RGBA32F
 });
 
-let updateTex = app.createTexture2D(posData, dim, dim, {
+let dataTexB = app.createTexture2D(posData, dim, dim, {
     minFilter: PicoGL.NEAREST,
     magFilter: PicoGL.NEAREST,
     wrapS: PicoGL.CLAMP_TO_EDGE,
@@ -432,16 +442,10 @@ let updateTex = app.createTexture2D(posData, dim, dim, {
 
 let velTexA  = app.createTexture2D(velData, dim, dim, { 
     internalFormat: PicoGL.RGBA32F, 
-    wrapS: PicoGL.REPEAT,
-    wrapT: PicoGL.REPEAT,
-    maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });
 
 let velTexB  = app.createTexture2D(velData, dim, dim, { 
     internalFormat: PicoGL.RGBA32F, 
-    wrapS: PicoGL.REPEAT,
-    wrapT: PicoGL.REPEAT,
-    maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });
 
 
@@ -465,7 +469,8 @@ let quadArray = app.createVertexArray()
 
 
 let updateFramebuffer = app.createFramebuffer(dim, dim)
-.colorTarget(0, updateTex);
+.colorTarget(0, dataTexB)
+.colorTarget(1, velTexA);
 
 
 
@@ -497,16 +502,17 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
     
     let updatePositionCall = app.createDrawCall(updateProgram, quadArray)
     .primitive(PicoGL.TRIANGLES)
-    .texture("dataTex", dataTex)
-    .texture("flowField", noiseTex);
+    .texture("dataTex", dataTexA)
+    .texture("flowField", noiseTex)
+    .texture("velTex", velTexA);
 
 
     let drawCall = app.createDrawCall(program, points)
     .primitive(PicoGL.POINTS)
-    .texture("dataTex", dataTex)
+    .texture("dataTex", dataTexA)
     .uniform("view", player.getView())
     .uniform("frust", projMatrix)
-    .texture("velTex", noiseTex);
+    .texture("flowField", noiseTex);
 
 
     app.defaultViewport();
@@ -557,13 +563,17 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
 
 
         if (!flag){
-            updatePositionCall.texture("dataTex", dataTex)
-            updateFramebuffer.colorTarget(0, updateTex);
+            updatePositionCall.texture("dataTex", dataTexA)
+            updatePositionCall.texture("velTex", velTexA)
+            updateFramebuffer.colorTarget(0, dataTexB)
+            updateFramebuffer.colorTarget(1, velTexB)
 
         }
         else {
-            updatePositionCall.texture("dataTex", updateTex)
-            updateFramebuffer.colorTarget(0, dataTex);
+            updatePositionCall.texture("dataTex", dataTexB)
+            updatePositionCall.texture("velTex", velTexB)
+            updateFramebuffer.colorTarget(0, dataTexA)
+            updateFramebuffer.colorTarget(1, velTexA)
 
         }
 
@@ -572,10 +582,10 @@ app.createPrograms([pointVert, pointFrag], [quad_vs, pointVelFrag]).then(([progr
 
 
         if (!flag){
-            drawCall.texture("dataTex", updateTex);
+            drawCall.texture("dataTex", dataTexB);
         }
         else {
-            drawCall.texture("dataTex", dataTex);
+            drawCall.texture("dataTex", dataTexA);
         }
 
         flag = !flag;
