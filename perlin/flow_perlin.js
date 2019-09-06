@@ -258,9 +258,9 @@ layout(location=1) out vec4 newVelocity;
 void main(){
     
     vec3 pos = texture(dataTex, index).xyz; 
-    vec3 velocity = texture(velTex, index).xyz;
+    vec3 velocity = 0.001 * normalize(texture(velTex, index).xyz);
 
-    vec3 newPos = pos + 0.01 * normalize(velocity); 
+    vec3 newPos = pos + velocity; 
     vec3 flow = 0.01 * normalize(texture(flowField, newPos.xy).xyz);
 
     newPosition = vec4(newPos.xy, 0.0, 1.0);
@@ -432,27 +432,20 @@ let textureIndex = 0;
 for (let i = 0; i < noiseDim; ++i) {
     for (let j = 0; j < noiseDim; ++j) {
                 
-        let iadj = 5*i;///noiseDim3d;
-        let jadj = 5*j;///noiseDim3d;
-
-        //let x = noiseGen.noise(jadj*iadj,jadj);
-        //let y = noiseGen.noise(jadj*iadj,iadj);
+        let iadj = .05*i;
+        let jadj = .05*j;
 
         let angle = 2 * 3.14 * noiseGen.noise(iadj, jadj);
 
         let x = Math.sin(angle);
         let y = Math.cos(angle);
 
-
         console.log("Index " + textureIndex/4 + ": (" + x + ", " + y + ")")
-
 
         textureData[textureIndex++] = x;
         textureData[textureIndex++] = y;
         textureData[textureIndex++] = 0.0;
         textureData[textureIndex++] = 1.0;
-
-
     }
 }
 
@@ -607,20 +600,15 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
 
             mouseRead = true;
         }
+
         playerView = player.getView()
 
 
-        let timeDiff = (performance.now() - time)/1000;
         
         if (timer.ready()) {
-           
             utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
         }
-
         timer.start();
-
-        app.viewport(0, 0, dim, dim);
-
 
         if (!flag){
             updatePositionCall.texture("dataTex", dataTexA)
@@ -640,7 +628,7 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
             noiseCall.texture("noiseTex", noiseTexB);
             noiseFramebuffer.colorTarget(0, noiseTex)
         }
-
+        app.viewport(0, 0, dim, dim);
         app.drawFramebuffer(updateFramebuffer);
         updatePositionCall.draw();
 
