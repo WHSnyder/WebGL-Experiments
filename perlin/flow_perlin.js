@@ -190,7 +190,7 @@ out vec4 color;
 
 void main(){
 
-    vec4 pos = texture(dataTex, dataIndex/32.0);
+    vec4 pos = texture(dataTex, dataIndex/31.0);
 
     gl_Position = frust * view * pos;
     gl_PointSize = 10.0;
@@ -249,6 +249,8 @@ uniform sampler2D dataTex;
 uniform sampler2D velTex;
 uniform sampler2D flowField;  
 
+uniform float timeDiff;
+
 in vec2 index;
 
 layout(location=0) out vec4 newPosition;
@@ -258,13 +260,13 @@ layout(location=1) out vec4 newVelocity;
 void main(){
     
     vec3 pos = texture(dataTex, index).xyz; 
-    vec3 velocity = 0.001 * normalize(texture(velTex, index).xyz);
+    vec3 velocity = texture(velTex, index).xyz;
 
-    vec3 newPos = pos + velocity; 
-    vec3 flow = 0.01 * normalize(texture(flowField, newPos.xy).xyz);
+    vec3 flow = texture(flowField, (pos.xy)).xyz;
+    vec3 newPos = pos + .001 * timeDiff * velocity; 
 
     newPosition = vec4(newPos.xy, 0.0, 1.0);
-    newVelocity = vec4((velocity + flow).xy,0.0,1.0);
+    newVelocity = vec4((velocity + 2.0 * flow).xy,0.0,1.0);
 }`;
 
 
@@ -285,7 +287,9 @@ out vec4 fragColor;
 
 void main(){
 
-    fragColor = vec4(texture(noiseTex, index).xyz,1.0); 
+	vec4 noiseVal = texture(noiseTex, index);
+
+    fragColor = vec4(noiseVal.x, noiseVal.y, 0.0,1.0); 
 }`;
 
 
@@ -314,7 +318,7 @@ let canvas = document.getElementById("view");
 
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
-//.depthTest();
+.depthTest();
 
 
 let timer = app.createTimer();
@@ -326,11 +330,9 @@ var NUM_PARTICLES = dim * dim;
 
 let posData = new Float32Array(NUM_PARTICLES * 4);
 let velData = new Float32Array(NUM_PARTICLES * 4);
-let texIndex = 0;
-
-
 let posIndicies = new Float32Array(NUM_PARTICLES * 2);
 
+let texIndex = 0;
 
 
 for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
@@ -338,20 +340,17 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
     posIndicies[i/2] = (i/4) % dim;
     posIndicies[i/2 + 1] = Math.floor((i/4)/dim);
 
-
-    posData[i] = Math.random();
-    posData[i + 1] = Math.random();
+    posData[i] = 6 * (Math.random() * 2 - 1);
+    posData[i + 1] = 6 * (Math.random() * 2 - 1);
     posData[i + 2] = 0.0;
     posData[i + 3] = 1.0;
 
-    velData[i] = .001 + Math.random();
-    velData[i + 1] = .001 + Math.random();
+    velData[i] = 0 * (Math.random() * 2 - 1);
+    velData[i + 1] = 0* (Math.random() * 2 - 1);
     velData[i + 2] = 0.0;
     velData[i + 3] = 1.0;
-
-
-//    console.log("Index " + i/4 + ": (" + posData[i] + ", " + posData[i + 1] + ")")
-
+    
+    //console.log("Index " + i/4 + ": (" + posData[i] + ", " + posData[i + 1] + ")")
 }
 
 
@@ -424,7 +423,7 @@ for (let i = 0; i < dim3d; ++i) {
     maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });*/
 
-var noiseDim = dim*2;
+var noiseDim = dim*4;
 
 let textureData = new Float32Array(noiseDim * noiseDim * 4);
 let textureIndex = 0;
@@ -432,15 +431,18 @@ let textureIndex = 0;
 for (let i = 0; i < noiseDim; ++i) {
     for (let j = 0; j < noiseDim; ++j) {
                 
-        let iadj = .05*i;
-        let jadj = .05*j;
+        let iadj = .07*i;
+        let jadj = .07*j;
 
-        let angle = 2 * 3.14 * noiseGen.noise(iadj, jadj);
+        let angleA = 2 * 3.14 * (2 * noiseGen.noise(iadj, jadj));
+        let angleB = 2 * 3.14 * (-2 * noiseGen.noise(jadj, iadj));
 
-        let x = Math.sin(angle);
-        let y = Math.cos(angle);
+        let angle = (angleA + angleB)/2;
 
-        console.log("Index " + textureIndex/4 + ": (" + x + ", " + y + ")")
+        let x = Math.cos(angle);
+        let y = Math.sin(angle);
+
+        //console.log("Index " + textureIndex/4 + ": (" + x + ", " + y + ")")
 
         textureData[textureIndex++] = x;
         textureData[textureIndex++] = y;
@@ -452,19 +454,19 @@ for (let i = 0; i < noiseDim; ++i) {
 
 let noiseTex = app.createTexture2D(textureData, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA32F, 
-    minFilter: PicoGL.NEAREST,
-    magFilter: PicoGL.NEAREST,
-    wrapS: PicoGL.REPEAT_MIRRORED,
-    wrapT: PicoGL.REPEAT_MIRRORED
+    minFilter: PicoGL.LINEAR,
+    magFilter: PicoGL.LINEAR,
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT
 });
 
 
 let noiseTexB = app.createTexture2D(textureData, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA32F, 
-    minFilter: PicoGL.NEAREST,
-    magFilter: PicoGL.NEAREST,
-    wrapS: PicoGL.REPEAT_MIRRORED,
-    wrapT: PicoGL.REPEAT_MIRRORED
+    minFilter: PicoGL.LINEAR,
+    magFilter: PicoGL.LINEAR,
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT
 });
 
 let dataTexA = app.createTexture2D(posData, dim, dim, {
@@ -558,6 +560,8 @@ let velUpdateShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointVelFrag);
 let pointShader = app.createShader(PicoGL.VERTEX_SHADER, pointVert);
 let pointFragShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointFrag);
 
+let timeNow = performance.now()/1000;
+let lastTime = timeNow;
 
 app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader], [quadShader, noiseVizShader]).then(([program, updateProgram, noiseProgram]) => {
     
@@ -579,7 +583,6 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
     .primitive(PicoGL.TRIANGLES)
 
    
-
     
     function draw() {
 
@@ -610,7 +613,14 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
         }
         timer.start();
 
+        timeNow = performance.now()/1000;
+
+        updatePositionCall.uniform("timeDiff", timeNow - lastTime);
+
+        lastTime = timeNow;
+
         if (!flag){
+        	updatePositionCall.texture("noiseTex", noiseTex)
             updatePositionCall.texture("dataTex", dataTexA)
             updatePositionCall.texture("velTex", velTexA)
             updateFramebuffer.colorTarget(0, dataTexB)
@@ -620,6 +630,7 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
             noiseFramebuffer.colorTarget(0, noiseTexB);
         }
         else {
+        	updatePositionCall.texture("noiseTex", noiseTexB)
             updatePositionCall.texture("dataTex", dataTexB)
             updatePositionCall.texture("velTex", velTexB)
             updateFramebuffer.colorTarget(0, dataTexA)
