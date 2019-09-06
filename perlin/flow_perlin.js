@@ -188,29 +188,14 @@ layout(location=0) in vec2 dataIndex;
 out vec4 color;
 
 
-vec3 toWorld(vec3 texPosition){
-    //return (2.0 * texPosition) - 1.0;
-    return texPosition;
-}
-
-vec3 toTex(vec3 worldPosition){
-    //return (worldPosition + 1.0)/2.0; 
-    return worldPosition;
-}
-
-
-
 void main(){
 
-    vec4 pos = texture(dataTex, dataIndex/31.0);
-
-    pos = vec4(toWorld(pos.xyz),1.0);
+    vec4 pos = texture(dataTex, dataIndex/16.0);
 
     gl_Position = frust * view * pos;
     gl_PointSize = 10.0;
 
-    color = vec4(normalize(texture(flowField, pos.xy).rgb),1.0);
-    //color = vec4(toTex(pos.xyz), 1.0);
+    color = vec4(1.0,0.0,0.0,1.0);//vec4(normalize(texture(flowField, pos.xy).rgb),1.0);
 } `;
 
 
@@ -248,7 +233,7 @@ out vec2 index;
 void main() {
 
     index = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition,0.0,1.0);//not sure yet why this is necessary..
+    gl_Position = vec4(aPosition,0.0,1.0);
 }`;
 
 
@@ -266,36 +251,23 @@ uniform sampler2D flowField;
 
 in vec2 index;
 
-layout(location=0) out vec4 position;
+layout(location=0) out vec4 newPosition;
 layout(location=1) out vec4 newVelocity;
-
-
-vec3 toWorld(vec3 texPosition){
-   return (2.0 * texPosition) - 1.0;
-    //return texPosition;
-}
-
-vec3 toTex(vec3 worldPosition){
-    return (worldPosition + 1.0)/2.0;
-    //return worldPosition; 
-}
 
 
 void main(){
     
-    vec4 pos = texture(dataTex, index); 
-    pos = vec4(toWorld(pos.xyz),1.0);
-
+    vec3 pos = texture(dataTex, index).xyz; 
     vec3 velocity = texture(velTex, index).xyz;
-    velocity = toWorld(velocity); //keep
 
-    vec3 worldPos = pos.xyz + .01 * normalize(velocity); //keep
+    vec3 newPos = pos + 0.001 * normalize(velocity); 
+    vec3 flow = 0.001 * normalize(texture(flowField, newPos.xy).xyz);
 
-    worldPos = toTex(worldPos); //this wasn't working because you didnt convert it in the first place!!!
-
-    position = vec4(worldPos,1.0);
-    newVelocity = abs(vec4((velocity + texture(flowField, worldPos.xy).xyz),1.0));
+    newPosition = vec4(newPos.xy, 0.0, 1.0);
+    newVelocity = vec4(velocity + flow,1.0);
 }`;
+
+
 
 
 var noiseViz = 
@@ -348,9 +320,9 @@ let app = PicoGL.createApp(canvas)
 let timer = app.createTimer();
 
 
-const dim = 32;
+const dim = 16;
 
-var NUM_PARTICLES = 1024;
+var NUM_PARTICLES = dim * dim;
 
 let posData = new Float32Array(NUM_PARTICLES * 4);
 let velData = new Float32Array(NUM_PARTICLES * 4);
@@ -366,12 +338,20 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
     posIndicies[i/2] = (i/4) % dim;
     posIndicies[i/2 + 1] = Math.floor((i/4)/dim);
 
-    //console.log("Index " + i/2 + ": (" + posIndicies[i/2] + ", " + posIndicies[i/2 + 1] + ")")
 
-    posData[i] =  Math.random();
-    posData[i + 1] = Math.random();
-    posData[i + 2] = Math.random();
+    posData[i] = 1.0 * Math.random();
+    posData[i + 1] = 1.0 * Math.random();
+    posData[i + 2] = 0;//Math.random() + 5;
     posData[i + 3] = 1.0;
+
+    velData[i] = Math.random();
+    velData[i + 1] = Math.random();
+    velData[i + 2] = 0.0;
+    velData[i + 3] = 1.0;
+
+
+//    console.log("Index " + i/4 + ": (" + posData[i] + ", " + posData[i + 1] + ")")
+
 }
 
 
@@ -455,13 +435,18 @@ for (let i = 0; i < dim; ++i) {
         let iadj = .10*i;///dim3d;
         let jadj = .10*j;///dim3d;
 
-        let x = (noiseGen.noise(jadj,iadj)+ 1.0)/2.0;
-        let y = (noiseGen.noise(iadj,jadj) + 1.0)/2.0;
+        let x = noiseGen.noise(jadj,iadj);
+        let y = noiseGen.noise(iadj,jadj);
+
+        console.log("Index " + textureIndex/4 + ": (" + x + ", " + y + ")")
+
 
         textureData[textureIndex++] = x;
         textureData[textureIndex++] = y;
-        textureData[textureIndex++] = 0;
+        textureData[textureIndex++] = 0.0;
         textureData[textureIndex++] = 1.0;
+
+
     }
 }
 
@@ -470,9 +455,8 @@ let noiseTex = app.createTexture2D(textureData, dim, dim, {
     internalFormat: PicoGL.RGBA32F, 
     minFilter: PicoGL.NEAREST,
     magFilter: PicoGL.NEAREST,
-    wrapS: PicoGL.CLAMP_TO_EDGE,
-    wrapT: PicoGL.CLAMP_TO_EDGE,
-    maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT
 });
 
 let dataTexA = app.createTexture2D(posData, dim, dim, {
@@ -537,14 +521,7 @@ let updateFramebuffer = app.createFramebuffer(dim, dim)
 
 // UNIFORM DATA
 let projMatrix = mat4.create();
-mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 1000);
-let viewMatrix = mat4.create();
-
-let eyePosition = vec3.fromValues(-4, 0, -4);
-mat4.lookAt(viewMatrix, eyePosition, vec3.fromValues(0, 0, 0), vec3.fromValues(0, 1, 0));
-let mvpMatrix = mat4.create();
-mat4.multiply(mvpMatrix, projMatrix, viewMatrix);
-
+mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 10);
 
 
 
@@ -571,7 +548,7 @@ let pointShader = app.createShader(PicoGL.VERTEX_SHADER, pointVert);
 let pointFragShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointFrag);
 
 
-app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader], [quad_vs, noiseViz]).then(([program, updateProgram, noiseProgram]) => {
+app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader], [quadShader, noiseVizShader]).then(([program, updateProgram, noiseProgram]) => {
     
     let updatePositionCall = app.createDrawCall(updateProgram, quadArray)
     .primitive(PicoGL.TRIANGLES)
@@ -586,28 +563,11 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
     .uniform("frust", projMatrix)
     .texture("flowField", noiseTex);
 
-    console.log(textureData);
-
-
-    var noiseCall = app.createDrawCall(noiseProgram, quadArray)
+    let noiseCall = app.createDrawCall(noiseProgram, quadArray)
     .texture("noiseTex", noiseTex)
     .primitive(PicoGL.TRIANGLES)
 
    
-    
-
-    /*
-    app.defaultViewport();
-    app.defaultDrawFramebuffer();
-    app.clear();
-
-
-    //drawCall.uniform("time", 0.0);
-    noiseCall.draw();*/
-
-
-
-    //let startTime = performance.now();
 
     
     function draw() {
@@ -641,7 +601,7 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
 
         timer.start();
 
-        app.viewport(0, 0, dim-1, dim-1);
+        app.viewport(0, 0, dim, dim);
 
 
         if (!flag){
@@ -670,21 +630,14 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
 
         flag = !flag;
 
-
-
-
         app.defaultViewport();
         app.defaultDrawFramebuffer();
         app.clear();
 
-
-
         drawCall.uniform("view", player.getView());
         drawCall.draw();
-        //noiseCall.draw();
 
         timer.end();
-
 
         requestAnimationFrame(draw);
     }

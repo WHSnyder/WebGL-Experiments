@@ -4,11 +4,6 @@ FOR THIS WONDERFUL LIBRARY AND CLOTH SIMULATION.
 
 All code here except the cutting additions was written by him and I only added
 minor changes to the .
-
-
-
-
-
 */
 
 

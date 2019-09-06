@@ -76,6 +76,7 @@
 
 	var projects_opt = document.getElementById("projects_opt");
 	var projects = document.getElementsByClassName("project")
+	var projects_div = document.getElementById("projects");
 
 	var current = "about";
 	var currEl = about;
@@ -91,10 +92,14 @@
 
 	function fadeProjects(projs){
 
+		projects_div.style.zIndex = -1;
+
 		for (let project of projs){
 			project.style.opacity = "0.0";
 			project.style.zIndex = -1;
 		}
+
+		projects_div.style.opacity = 0.0;
 	}
 
 	
@@ -105,10 +110,12 @@
 		//fadeResume()
 
 		let delay = 0.0;
+		projects_div.style.opacity = 1.0;
+		projects_div.style.zIndex = 10;
 
 		for (let project of projects){
 			project.style.transitionDelay = delay.toString() + "s";
-			project.style.opacity = "1.0";
+			project.style.opacity = 1.0;
 			project.style.zIndex = 10;
 
 			delay += 0.08
@@ -173,7 +180,6 @@
 
 	</script>
 </html>
-
 
 
 
