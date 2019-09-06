@@ -190,12 +190,12 @@ out vec4 color;
 
 void main(){
 
-    vec4 pos = texture(dataTex, dataIndex/16.0);
+    vec4 pos = texture(dataTex, dataIndex/32.0);
 
     gl_Position = frust * view * pos;
     gl_PointSize = 10.0;
 
-    color = vec4(1.0,0.0,0.0,1.0);//vec4(normalize(texture(flowField, pos.xy).rgb),1.0);
+    color = vec4(1.0,0.0,0.0,1.0);
 } `;
 
 
@@ -233,7 +233,7 @@ out vec2 index;
 void main() {
 
     index = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition,0.0,1.0);
+    gl_Position = vec4(aPosition,1.0,1.0);
 }`;
 
 
@@ -260,11 +260,11 @@ void main(){
     vec3 pos = texture(dataTex, index).xyz; 
     vec3 velocity = texture(velTex, index).xyz;
 
-    vec3 newPos = pos + 0.001 * normalize(velocity); 
-    vec3 flow = 0.001 * normalize(texture(flowField, newPos.xy).xyz);
+    vec3 newPos = pos + 0.01 * normalize(velocity); 
+    vec3 flow = 0.01 * normalize(texture(flowField, newPos.xy).xyz);
 
     newPosition = vec4(newPos.xy, 0.0, 1.0);
-    newVelocity = vec4(velocity + flow,1.0);
+    newVelocity = vec4((velocity + flow).xy,0.0,1.0);
 }`;
 
 
@@ -314,13 +314,13 @@ let canvas = document.getElementById("view");
 
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
-.depthTest();
+//.depthTest();
 
 
 let timer = app.createTimer();
 
 
-const dim = 16;
+const dim = 32;
 
 var NUM_PARTICLES = dim * dim;
 
@@ -339,13 +339,13 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
     posIndicies[i/2 + 1] = Math.floor((i/4)/dim);
 
 
-    posData[i] = 1.0 * Math.random();
-    posData[i + 1] = 1.0 * Math.random();
-    posData[i + 2] = 0;//Math.random() + 5;
+    posData[i] = Math.random();
+    posData[i + 1] = Math.random();
+    posData[i + 2] = 0.0;
     posData[i + 3] = 1.0;
 
-    velData[i] = Math.random();
-    velData[i + 1] = Math.random();
+    velData[i] = .001 + Math.random();
+    velData[i + 1] = .001 + Math.random();
     velData[i + 2] = 0.0;
     velData[i + 3] = 1.0;
 
@@ -424,19 +424,25 @@ for (let i = 0; i < dim3d; ++i) {
     maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
 });*/
 
+var noiseDim = dim*2;
 
-
-let textureData = new Float32Array(dim * dim * 4);
+let textureData = new Float32Array(noiseDim * noiseDim * 4);
 let textureIndex = 0;
 
-for (let i = 0; i < dim; ++i) {
-    for (let j = 0; j < dim; ++j) {
+for (let i = 0; i < noiseDim; ++i) {
+    for (let j = 0; j < noiseDim; ++j) {
                 
-        let iadj = .10*i;///dim3d;
-        let jadj = .10*j;///dim3d;
+        let iadj = 5*i;///noiseDim3d;
+        let jadj = 5*j;///noiseDim3d;
 
-        let x = noiseGen.noise(jadj,iadj);
-        let y = noiseGen.noise(iadj,jadj);
+        //let x = noiseGen.noise(jadj*iadj,jadj);
+        //let y = noiseGen.noise(jadj*iadj,iadj);
+
+        let angle = 2 * 3.14 * noiseGen.noise(iadj, jadj);
+
+        let x = Math.sin(angle);
+        let y = Math.cos(angle);
+
 
         console.log("Index " + textureIndex/4 + ": (" + x + ", " + y + ")")
 
@@ -451,12 +457,21 @@ for (let i = 0; i < dim; ++i) {
 }
 
 
-let noiseTex = app.createTexture2D(textureData, dim, dim, { 
+let noiseTex = app.createTexture2D(textureData, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA32F, 
     minFilter: PicoGL.NEAREST,
     magFilter: PicoGL.NEAREST,
-    wrapS: PicoGL.REPEAT,
-    wrapT: PicoGL.REPEAT
+    wrapS: PicoGL.REPEAT_MIRRORED,
+    wrapT: PicoGL.REPEAT_MIRRORED
+});
+
+
+let noiseTexB = app.createTexture2D(textureData, noiseDim, noiseDim, { 
+    internalFormat: PicoGL.RGBA32F, 
+    minFilter: PicoGL.NEAREST,
+    magFilter: PicoGL.NEAREST,
+    wrapS: PicoGL.REPEAT_MIRRORED,
+    wrapT: PicoGL.REPEAT_MIRRORED
 });
 
 let dataTexA = app.createTexture2D(posData, dim, dim, {
@@ -516,12 +531,15 @@ let updateFramebuffer = app.createFramebuffer(dim, dim)
 .colorTarget(0, dataTexB)
 .colorTarget(1, velTexA);
 
+let noiseFramebuffer = app.createFramebuffer(noiseDim, noiseDim)
+.colorTarget(0, noiseTexB);
+
 
 
 
 // UNIFORM DATA
 let projMatrix = mat4.create();
-mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, 10);
+mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, null);
 
 
 
@@ -609,12 +627,18 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
             updatePositionCall.texture("velTex", velTexA)
             updateFramebuffer.colorTarget(0, dataTexB)
             updateFramebuffer.colorTarget(1, velTexB)
+
+            noiseCall.texture("noiseTex", noiseTex);
+            noiseFramebuffer.colorTarget(0, noiseTexB);
         }
         else {
             updatePositionCall.texture("dataTex", dataTexB)
             updatePositionCall.texture("velTex", velTexB)
             updateFramebuffer.colorTarget(0, dataTexA)
             updateFramebuffer.colorTarget(1, velTexA)
+
+            noiseCall.texture("noiseTex", noiseTexB);
+            noiseFramebuffer.colorTarget(0, noiseTex)
         }
 
         app.drawFramebuffer(updateFramebuffer);
@@ -636,6 +660,10 @@ app.createPrograms([pointShader, pointFragShader], [quadShader, velUpdateShader]
 
         drawCall.uniform("view", player.getView());
         drawCall.draw();
+
+        app.viewport(0, 0, noiseDim, noiseDim);
+        app.drawFramebuffer(noiseFramebuffer);
+        noiseCall.draw();
 
         timer.end();
 

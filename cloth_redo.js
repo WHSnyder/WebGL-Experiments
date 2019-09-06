@@ -719,7 +719,7 @@ let updateShear4Uniforms = app.createUniformBuffer([
 
 
 let projMatrix = mat4.create();
-mat4.perspective(projMatrix, Math.PI / 2, rect.width / rect.height, 0.1, 3.0);
+mat4.perspective(projMatrix, Math.PI / 2, rect.width / rect.height, 0.0, 3.0);
 
 let viewMatrix = mat4.create();
 
