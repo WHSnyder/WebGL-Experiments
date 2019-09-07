@@ -197,7 +197,6 @@ var pointVert =
 
 precision highp float;
 precision highp sampler2D;
-//precision highp sampler3D;
 
 uniform sampler2D dataTex;
 uniform sampler2D flowField;
@@ -217,7 +216,7 @@ void main(){
     gl_Position = frust * view * pos;
     gl_PointSize = 10.0;
 
-    color = vec4(1.0,0.0,0.0,1.0);
+    color = vec4(1.0,0.0,0.0,0.5);
 } `;
 
 
@@ -260,12 +259,12 @@ var pointVelFrag =
 `#version 300 es
 
 precision highp float;
-//precision highp sampler3D;
+precision highp sampler3D;
 precision highp sampler2D;
 
 uniform sampler2D dataTex;
 uniform sampler2D velTex;
-uniform sampler2D flowField;  
+uniform sampler3D flowField;  
 
 uniform float timeDiff;
 
@@ -280,11 +279,11 @@ void main(){
     vec3 pos = texture(dataTex, index).xyz; 
     vec3 velocity = texture(velTex, index).xyz;
 
-    vec3 flow = .1 * texture(flowField, (pos.xy)).xyz;
+    vec3 flow = .5 * texture(flowField, (pos.xyz)).xyz;
     vec3 newPos = pos + .01 * timeDiff * velocity; 
 
-    newPosition = vec4(newPos.xy, 0.0, 1.0);
-    newVelocity = vec4((velocity + 2.0 * flow).xy,0.0,1.0);
+    newPosition = vec4(newPos.xyz, 1.0);
+    newVelocity = vec4((velocity + 2.0 * flow).xyz, 1.0);
 }`;
 
 
@@ -449,7 +448,7 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
 
     posData[i] = 6 * (Math.random() * 2 - 1);
     posData[i + 1] = 6 * (Math.random() * 2 - 1);
-    posData[i + 2] = 0.0;
+    posData[i + 2] = 6 * (Math.random() * 2 - 1);
     posData[i + 3] = 1.0;
 
     velData[i] = 0 * (Math.random() * 2 - 1);
@@ -462,81 +461,68 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
 
 
 
-/*
-const dim3d = 32;
 
-let textureData = new Float32Array(dim3d * dim3d * dim3d * 4);
+const noiseDim = 32;
+
+let textureData = new Float32Array(noiseDim * noiseDim * noiseDim * 4);
 let textureIndex = 0;
 
-for (let i = 0; i < dim3d; ++i) {
-    for (let j = 0; j < dim3d; ++j) {
-        for (let k = 0; k < dim3d; ++k) {
+for (let i = 0; i < noiseDim; ++i) {
+
+   let xW = .5 * Math.abs( i - (noiseDim/2) ) / (noiseDim/2) ;
+
+    for (let j = 0; j < noiseDim; ++j) {
+        for (let k = 0; k < noiseDim; ++k) {
                 
-            let iadj = 100*i;///dim3d;
-            let jadj = 100*j;///dim3d;
-            let kadj = 100*k;///dim3d;
+            let iadj = .07*i;///noiseDim;
+            let jadj = .07*j;///noiseDim;
+            let kadj = .07*k;///noiseDim;
 
-            let x = (noiseGen.noise(jadj,kadj) + 1.0)/2.0;
-            let y =(noiseGen.noise(iadj,kadj) + 1.0)/2.0;
-            let z =(noiseGen.noise(iadj,jadj) + 1.0)/2.0;
+            let x =noiseGen.noise(jadj,kadj) 
+            let y =noiseGen.noise(iadj,kadj)
+            let z =noiseGen.noise(iadj,jadj)
+
+            if (x < 0){
+              x *= .99;
+            } 
+
+            if (y > 0){
+              y *= .9
+            }
             
-            /*
-            if (k < 1){
-                z = 1.0;
-            }
-            if (k > dim3d - 2){
-                z = 0.0;
-            }
-
-            if (j < 1){
-                y = 1.0;
-            }
-            if (j > dim3d - 2){
-                y = 0.0;
-            }            
-
-            if (i < 1){
-                x = 1.0;
-            }
-            if (i > dim3d - 2){
-                x = 0.0;
-            }
-            //let x = 0.5;
-            //let y = 0.5;
-            //let z = 0.5;
-
-           
-
 
             textureData[textureIndex++] = x;
             textureData[textureIndex++] = y;
             textureData[textureIndex++] = z;
             textureData[textureIndex++] = 0;
-
-            if (y > 1.0 || y < 0.0){
-                console.log("yea...")
-            }
         }
     }
-}*/
+}
 
 
-/*let noiseTex = app.createTexture3D(textureData, dim3d, dim3d, dim3d, { 
+let noiseTex = app.createTexture3D(textureData, noiseDim, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA32F, 
-    minFilter: PicoGL.NEAREST,
-    magFilter: PicoGL.NEAREST,
-    wrapS: PicoGL.CLAMP_TO_EDGE,
-    wrapT: PicoGL.CLAMP_TO_EDGE,
-    maxAnisotropy: PicoGL.WEBGL_INFO.MAX_TEXTURE_ANISOTROPY 
-});*/
+    minFilter: PicoGL.LINEAR,
+    magFilter: PicoGL.LINEAR,
+    wrapS: PicoGL.REPEAT,
+    wrapT: PicoGL.REPEAT
+});
 
+
+/*
 var noiseDim = dim*4;
 
 let textureData = new Float32Array(noiseDim * noiseDim * 4);
 let textureIndex = 0;
 
 for (let i = 0; i < noiseDim; ++i) {
+
+    let xWeight = .5 * Math.abs( i - (noiseDim/2) ) / (noiseDim/2) ;
+
     for (let j = 0; j < noiseDim; ++j) {
+
+        let yWeight = .5 * Math.abs( j - (noiseDim/2) ) / (noiseDim/2) ;
+
                 
         let iadj = .07*i;
         let jadj = .07*j;
@@ -546,27 +532,26 @@ for (let i = 0; i < noiseDim; ++i) {
         let x = Math.cos(angle);
         let y = Math.sin(angle);
 
+
         if (x < 0){
           x *= .6;
         }
 
-        //console.log("Index " + textureIndex/4 + ": (" + x + ", " + y + ")")
-
-        textureData[textureIndex++] = x;
-        textureData[textureIndex++] = y;
+        textureData[textureIndex++] = x * xWeight;
+        textureData[textureIndex++] = y * yWeight;
         textureData[textureIndex++] = 0.0;
         textureData[textureIndex++] = 1.0;
     }
-}
+}*/
 
-
-let noiseTex = app.createTexture2D(textureData, noiseDim, noiseDim, { 
+/*
+let noiseTex = app.createTexture3D(textureData, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA32F, 
     minFilter: PicoGL.LINEAR,
     magFilter: PicoGL.LINEAR,
     wrapS: PicoGL.REPEAT,
     wrapT: PicoGL.REPEAT
-});
+});*/
 
 
 let noiseTexB = app.createTexture2D(textureData, noiseDim, noiseDim, { 
@@ -807,18 +792,22 @@ app.createPrograms([pointShader, pointFragShader],
 
         flag = !flag;
 
-        app.defaultDrawFramebuffer().depthMask(true).noBlend();
+        app.defaultDrawFramebuffer().depthMask(true).blend();
         app.defaultViewport();
         app.clear();
 
         drawCall.uniform("view", playerView);
         drawCall.draw();
 
+
+
+        /*
         app.viewport(0, 0, noiseDim, noiseDim);
         app.drawFramebuffer(noiseFramebuffer)
         .noBlend()
         .depthMask(false);
         noiseCall.draw();
+        */
         
 
         app.defaultViewport();
@@ -835,7 +824,8 @@ app.createPrograms([pointShader, pointFragShader],
         app.defaultViewport();
         app.defaultDrawFramebuffer()
         .blend()
-        .depthMask(false)
+        .depthMask(true)
+
 
         finalPass.draw();
 
