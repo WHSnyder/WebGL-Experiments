@@ -199,7 +199,6 @@ precision highp float;
 precision highp sampler2D;
 
 uniform sampler2D dataTex;
-uniform sampler2D flowField;
 
 uniform mat4 view;
 uniform mat4 frust;
@@ -207,16 +206,19 @@ uniform mat4 frust;
 layout(location=0) in vec2 dataIndex;
 
 out vec4 color;
+out vec4 position;
 
 
 void main(){
 
     vec4 pos = texture(dataTex, dataIndex/31.0);
 
-    gl_Position = frust * view * pos;
-    gl_PointSize = 10.0;
+    position = pos;
 
-    color = vec4(1.0,0.0,0.0,0.5);
+    gl_Position = frust * view * pos;
+    gl_PointSize = 30.0;
+
+    color = vec4(1.0,1.0,1.0,0.5);
 } `;
 
 
@@ -226,18 +228,43 @@ var pointFrag =
 
 precision highp float;
 
+uniform mat4 frust;
+uniform mat4 view;
+uniform sampler2D gNorm;
+uniform sampler2D gGeom;
 
 in vec4 color;
+in vec4 position;
 
 out vec4 fragColor;
 
 void main(){
 
     fragColor = color;
+    vec2 index = gl_FragCoord.xy/vec2(1400,800);
 
-    if (length(2.0 * gl_PointCoord - 1.0) > 0.5){
-        discard;
+    vec4 norm = texture(gNorm, index);
+    vec4 geom = texture(gGeom, index);
+
+    float strength = 0.0;
+
+    float fromCenter = length(2.0 * gl_PointCoord - 1.0);
+
+    if (fromCenter > 0.05){
+    	if (norm.x == 0.0 && norm.y == 0.0 && norm.z == 0.0){
+      		discard;
+    	}
+    	else {
+    		strength = 0.0 - clamp(dot(geom - position, norm), -1.0, 0.0);
+    		fragColor = .75 * strength * vec4(1.0) * vec4(0.5, 0.0, 0.7, 1.0);
+    	}
     }
+
+    if (fromCenter > .9){
+    	discard;
+    }
+
+
 } `;
 
 
@@ -279,7 +306,7 @@ void main(){
     vec3 pos = texture(dataTex, index).xyz; 
     vec3 velocity = texture(velTex, index).xyz;
 
-    vec3 flow = .5 * texture(flowField, (pos.xyz)).xyz;
+    vec3 flow = .5 * texture(flowField, (pos.xyz/12.0)).xyz;
     vec3 newPos = pos + .01 * timeDiff * velocity; 
 
     newPosition = vec4(newPos.xyz, 1.0);
@@ -313,11 +340,11 @@ void main(){
 
     mat4 mvp = frust * view;
     
-    fGeom = mvp * vec4(position, 1.0);
+    fGeom = vec4(position, 1.0);
     fNorm = vec4(normal, 0.0);
     fColor = vec4(0.5, 0.0, 0.7, 1.0);
 
-    gl_Position = fGeom;
+    gl_Position = mvp * vec4(position,1.0);
 }`;
 
 
@@ -373,7 +400,7 @@ void main(){
       lightStrength = 0.0 - lightStrength;
     }
 
-    oColor = lightStrength * vec4(1.0,1.0,1.0,1.0) * color;
+    oColor = vec4(0.0,0.0,0.0,1.0);//lightStrength * vec4(1.0,1.0,1.0,1.0) * color;
 }`;
 
 
@@ -401,7 +428,7 @@ void main(){
 
 
 
-var noiseGen = new SimplexNoise(Math.random());
+var noiseGen = new SimplexNoise();
 
 
 var deltamX = 0;
@@ -455,8 +482,6 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
     velData[i + 1] = 0 * (Math.random() * 2 - 1);
     velData[i + 2] = 0.0;
     velData[i + 3] = 0.0;
-    
-    //console.log("Index " + i/4 + ": (" + posData[i] + ", " + posData[i + 1] + ")")
 }
 
 
@@ -468,9 +493,6 @@ let textureData = new Float32Array(noiseDim * noiseDim * noiseDim * 4);
 let textureIndex = 0;
 
 for (let i = 0; i < noiseDim; ++i) {
-
-   let xW = .5 * Math.abs( i - (noiseDim/2) ) / (noiseDim/2) ;
-
     for (let j = 0; j < noiseDim; ++j) {
         for (let k = 0; k < noiseDim; ++k) {
                 
@@ -490,7 +512,6 @@ for (let i = 0; i < noiseDim; ++i) {
               y *= .9
             }
             
-
             textureData[textureIndex++] = x;
             textureData[textureIndex++] = y;
             textureData[textureIndex++] = z;
@@ -507,52 +528,6 @@ let noiseTex = app.createTexture3D(textureData, noiseDim, noiseDim, noiseDim, {
     wrapS: PicoGL.REPEAT,
     wrapT: PicoGL.REPEAT
 });
-
-
-/*
-var noiseDim = dim*4;
-
-let textureData = new Float32Array(noiseDim * noiseDim * 4);
-let textureIndex = 0;
-
-for (let i = 0; i < noiseDim; ++i) {
-
-    let xWeight = .5 * Math.abs( i - (noiseDim/2) ) / (noiseDim/2) ;
-
-    for (let j = 0; j < noiseDim; ++j) {
-
-        let yWeight = .5 * Math.abs( j - (noiseDim/2) ) / (noiseDim/2) ;
-
-                
-        let iadj = .07*i;
-        let jadj = .07*j;
-
-        let angle = 2 * 3.14 * noiseGen.noise(iadj, jadj);
-
-        let x = Math.cos(angle);
-        let y = Math.sin(angle);
-
-
-        if (x < 0){
-          x *= .6;
-        }
-
-        textureData[textureIndex++] = x * xWeight;
-        textureData[textureIndex++] = y * yWeight;
-        textureData[textureIndex++] = 0.0;
-        textureData[textureIndex++] = 1.0;
-    }
-}*/
-
-/*
-let noiseTex = app.createTexture3D(textureData, noiseDim, noiseDim, { 
-    internalFormat: PicoGL.RGBA32F, 
-    minFilter: PicoGL.LINEAR,
-    magFilter: PicoGL.LINEAR,
-    wrapS: PicoGL.REPEAT,
-    wrapT: PicoGL.REPEAT
-});*/
-
 
 let noiseTexB = app.createTexture2D(textureData, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA32F, 
@@ -701,9 +676,10 @@ app.createPrograms([pointShader, pointFragShader],
     let drawCall = app.createDrawCall(pointProgram, points)
     .primitive(PicoGL.POINTS)
     .texture("dataTex", dataTexA)
+    .texture("gNorm", gBuffer.colorAttachments[0])
+    .texture("gGeom", gBuffer.colorAttachments[1])
     .uniform("view", player.getView())
     .uniform("frust", projMatrix)
-    .texture("flowField", noiseTex);
 
     let noiseCall = app.createDrawCall(noiseProgram, quadArray)
     .texture("noiseTex", noiseTex)
@@ -792,9 +768,10 @@ app.createPrograms([pointShader, pointFragShader],
 
         flag = !flag;
 
-        app.defaultDrawFramebuffer().depthMask(true).blend();
+        app.defaultDrawFramebuffer().depthMask(true).noBlend();
         app.defaultViewport();
         app.clear();
+
 
         drawCall.uniform("view", playerView);
         drawCall.draw();
@@ -816,7 +793,6 @@ app.createPrograms([pointShader, pointFragShader],
         .noBlend()
         .clear()
 
-
         gPass.uniform("view", playerView);
         gPass.draw()
         
@@ -824,8 +800,7 @@ app.createPrograms([pointShader, pointFragShader],
         app.defaultViewport();
         app.defaultDrawFramebuffer()
         .blend()
-        .depthMask(true)
-
+        .depthMask(false)
 
         finalPass.draw();
 
