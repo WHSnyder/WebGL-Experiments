@@ -12,11 +12,11 @@ function readOBJFile(fileName, scale, reverse) {
 var objects = {};
 
 objects["cat"] = readOBJFile("./models/gitcat.obj", 2, 0);
-//objects["volume"] = readOBJFile("./models/lightVolume.obj", 1, 0);
+objects["volume"] = readOBJFile("./models/lightVolume.obj", .5, 0);
 
 
 var catdata = objects["cat"].getDrawingInfo()
-//var volumeData = objects["volume"].getDrawingInfo
+var volumeData = objects["volume"].getDrawingInfo()
 
 
 
@@ -194,6 +194,66 @@ SimplexNoise.prototype.noise3d = function(xin, yin, zin) {
 
 
 
+var lightVolumeVert =
+`#version 300 es
+
+precision highp float;
+precision highp sampler2D;
+
+uniform sampler2D dataTex;
+
+uniform mat4 view;
+uniform mat4 frust;
+
+layout(location=0) in vec3 pos;
+layout(location=1) in vec3 normal;
+layout(location=2) in vec2 dataIndex;
+
+out vec4 center;
+
+void main(){
+
+    center = texture(dataTex, dataIndex/32.0);
+    gl_Position = frust * view * (vec4(pos, 1.0) + center);
+} `;
+
+
+
+var lightVolumeFrag = 
+`#version 300 es
+
+precision highp float;
+
+uniform sampler2D gNorm;
+uniform sampler2D gGeom;
+uniform sampler2D gColor;
+
+
+in vec4 center;
+
+out vec4 fragColor;
+
+void main(){
+
+    vec2 index = gl_FragCoord.xy/vec2(1400,800);
+
+    vec4 norm = texture(gNorm, index);
+
+    if (norm.x == 0.0 && norm.y == 0.0){
+      discard;
+    }
+
+    vec4 geom = texture(gGeom, index);
+    vec4 fColor = texture(gColor, index);
+
+    vec4 toPoint = geom - center;
+    float atten = (.1 - clamp(length(toPoint), 0.0, .1))/.1;
+    
+    float strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
+    fragColor = vec4((strength * fColor).xyz,atten);
+} `;
+
+
 var pointVert =
 `#version 300 es
 
@@ -208,19 +268,16 @@ uniform mat4 frust;
 layout(location=0) in vec2 dataIndex;
 
 out vec4 color;
-out vec4 position;
 
 
 void main(){
 
     vec4 pos = texture(dataTex, dataIndex/32.0);
 
-    position = pos;
-
     gl_Position = frust * view * pos;
-    gl_PointSize = (frust * view * vec4(60.0,0.0,0.0,1.0)).x;
+    gl_PointSize = 2.0;
 
-    color = vec4(1.0,1.0,1.0,0.5);
+    color = vec4(1.0,1.0,1.0,1.0);
 } `;
 
 
@@ -230,52 +287,24 @@ var pointFrag =
 
 precision highp float;
 
-uniform mat4 frust;
-uniform mat4 view;
-uniform sampler2D gNorm;
-uniform sampler2D gGeom;
-uniform sampler2D gColor;
-
 in vec4 color;
-in vec4 position;
 
 out vec4 fragColor;
 
 void main(){
 
-    fragColor = color;
-    vec2 index = gl_FragCoord.xy/vec2(1400,800);
-
-    vec4 norm = texture(gNorm, index);
-    vec4 geom = texture(gGeom, index);
-    vec4 fColor = texture(gColor, index);
-
-    vec4 toPoint = geom - position;
-    float atten = (.1 - clamp(length(toPoint), 0.0, .1))/.1;
-
-    float strength = 0.0;
-
     float fromCenter = length(2.0 * gl_PointCoord - 1.0);
 
-    if (fromCenter > 0.05){
-    	if (norm.x == 0.0 && norm.y == 0.0 && norm.z == 0.0){
-      		discard;
-    	}
-    	else {
-    		strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
-    		fragColor = vec4((atten * strength * fColor).xyz,1.0);
-
-    		if (atten <= 0.3){
-    			discard;
-    		}
-    	}
+    if (fromCenter > .8){
+      discard;
     }
 
-    if (fromCenter > .9){
-    	discard;
-    }
-
+    fragColor = color;
 } `;
+
+
+
+
 
 
 var quad_vs = 
@@ -316,7 +345,7 @@ void main(){
     vec3 pos = texture(dataTex, index).xyz; 
     vec3 velocity = texture(velTex, index).xyz;
 
-    vec3 flow = .01 * texture(flowField, (pos.xyz/12.0)).xyz;
+    vec3 flow = .01 * texture(flowField, (pos.xyz/6.0)).xyz;
     vec3 newPos = pos + .01 * timeDiff * velocity; 
 
     newPosition = vec4(newPos.xyz, 1.0);
@@ -460,6 +489,7 @@ let canvas = document.getElementById("view");
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
 .depthTest()
+.cullBackfaces()
 .depthFunc(PicoGL.LEQUAL)
 .blendFunc(PicoGL.ONE, PicoGL.ONE);
 
@@ -632,9 +662,7 @@ console.assert(gBuffer.getStatus() === PicoGL.FRAMEBUFFER_COMPLETE, "G-buffer fr
 
 
 
-let indices = app.createVertexBuffer(PicoGL.FLOAT, 2, posIndicies)
-let points = app.createVertexArray()
-.vertexAttributeBuffer(0, indices);
+
 
 
 let quadPositions = app.createVertexBuffer(PicoGL.FLOAT, 2, new Float32Array([
@@ -658,6 +686,21 @@ var catArray = app.createVertexArray()
 .vertexAttributeBuffer(0, cat_normals)
 .vertexAttributeBuffer(1, cat_positions)
 
+let volume_positions = app.createVertexBuffer(PicoGL.FLOAT, 3, volumeData.vertices);
+let volume_normals = app.createVertexBuffer(PicoGL.FLOAT, 3, volumeData.normals);
+let indices = app.createVertexBuffer(PicoGL.FLOAT, 2, posIndicies);
+
+var volumeArray = app.createVertexArray()
+.vertexAttributeBuffer(0, volume_positions)
+.vertexAttributeBuffer(1, volume_normals)
+.instanceAttributeBuffer(2, indices)
+
+
+let pointsArray = app.createVertexArray()
+.vertexAttributeBuffer(0, indices);
+
+
+
 
 let updateFramebuffer = app.createFramebuffer(dim, dim)
 .colorTarget(0, dataTexB)
@@ -678,32 +721,46 @@ var frameNum = 0;
 
 
 let quadShader = app.createShader(PicoGL.VERTEX_SHADER, quad_vs);
+
 let noiseVizShader = app.createShader(PicoGL.FRAGMENT_SHADER, noiseViz);
 let velUpdateShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointVelFrag);
-let pointShader = app.createShader(PicoGL.VERTEX_SHADER, pointVert);
-let pointFragShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointFrag);
+
+let pointVShader = app.createShader(PicoGL.VERTEX_SHADER, pointVert);
+let pointFShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointFrag);
+
+let volumeVShader = app.createShader(PicoGL.VERTEX_SHADER, lightVolumeVert);
+let volumeFShader = app.createShader(PicoGL.FRAGMENT_SHADER, lightVolumeFrag);
+
+
 
 
 let timeNow = performance.now()/1000;
 let lastTime = timeNow;
 
-app.createPrograms([pointShader, pointFragShader], 
+app.createPrograms([pointVShader, pointFShader],
+                   [volumeVShader, volumeFShader], 
                    [quadShader, velUpdateShader], 
                    [quadShader, noiseVizShader],
                    [objectVShader, objectFShader],
                    [quadShader, lightPassFShader])
                   .then((
-                    [pointProgram, updateProgram, noiseProgram, objProgram, finalProgram]
+                    [pointProgram, lightVolumeProgram, updateProgram, noiseProgram, objProgram, finalProgram]
                    ) => {
     
-    let updatePositionCall = app.createDrawCall(updateProgram, quadArray)
+    let updateCall = app.createDrawCall(updateProgram, quadArray)
     .primitive(PicoGL.TRIANGLES)
     .texture("dataTex", dataTexA)
     .texture("flowField", noiseTex)
     .texture("velTex", velTexA);
 
-    let drawCall = app.createDrawCall(pointProgram, points)
+    let pointCall = app.createDrawCall(pointProgram, pointsArray)
     .primitive(PicoGL.POINTS)
+    .texture("dataTex", dataTexA)
+    .uniform("view", player.getView())
+    .uniform("frust", projMatrix)
+
+    let volumeCall = app.createDrawCall(lightVolumeProgram, volumeArray)
+    .primitive(PicoGL.TRIANGLES)
     .texture("dataTex", dataTexA)
     .texture("gNorm", gBuffer.colorAttachments[0])
     .texture("gGeom", gBuffer.colorAttachments[1])
@@ -711,20 +768,18 @@ app.createPrograms([pointShader, pointFragShader],
     .uniform("view", player.getView())
     .uniform("frust", projMatrix)
 
-    let noiseCall = app.createDrawCall(noiseProgram, quadArray)
-    .texture("noiseTex", noiseTex)
-    .primitive(PicoGL.TRIANGLES);
-
     let gPass = app.createDrawCall(objProgram, catArray)
     .uniform("frust", projMatrix)
     .primitive(PicoGL.TRIANGLES);
 
-    let finalPass = app.createDrawCall(finalProgram, quadArray)
+    let objPass = app.createDrawCall(finalProgram, quadArray)
     .texture("gNorms", gBuffer.colorAttachments[0])
     .texture("gColor", gBuffer.colorAttachments[2])
     .primitive(PicoGL.TRIANGLES);
 
-
+    /*let noiseCall = app.createDrawCall(noiseProgram, quadArray)
+    .texture("noiseTex", noiseTex)
+    .primitive(PicoGL.TRIANGLES);*/
 
    
     
@@ -759,46 +814,36 @@ app.createPrograms([pointShader, pointFragShader],
 
         timeNow = performance.now()/1000;
 
-        updatePositionCall.uniform("timeDiff", timeNow - lastTime);
+        updateCall.uniform("timeDiff", timeNow - lastTime);
 
         lastTime = timeNow;
 
         if (!flag){
-        	//updatePositionCall.texture("noiseTex", noiseTex)
-            updatePositionCall.texture("dataTex", dataTexA)
-            updatePositionCall.texture("velTex", velTexA)
+            updateCall.texture("dataTex", dataTexA)
+            updateCall.texture("velTex", velTexA)
             updateFramebuffer.colorTarget(0, dataTexB)
             updateFramebuffer.colorTarget(1, velTexB)
 
-            noiseCall.texture("noiseTex", noiseTex);
-            noiseFramebuffer.colorTarget(0, noiseTexB);
+            pointCall.texture("dataTex", dataTexB);
+            volumeCall.texture("dataTex", dataTexB);
+
+            /*noiseCall.texture("noiseTex", noiseTex);
+            noiseFramebuffer.colorTarget(0, noiseTexB);*/
         }
         else {
-        	//updatePositionCall.texture("noiseTex", noiseTexB)
-            updatePositionCall.texture("dataTex", dataTexB)
-            updatePositionCall.texture("velTex", velTexB)
+            updateCall.texture("dataTex", dataTexB)
+            updateCall.texture("velTex", velTexB)
             updateFramebuffer.colorTarget(0, dataTexA)
             updateFramebuffer.colorTarget(1, velTexA)
 
-            noiseCall.texture("noiseTex", noiseTexB);
-            noiseFramebuffer.colorTarget(0, noiseTex)
-        }
-        app.viewport(0, 0, dim, dim);
-        app.drawFramebuffer(updateFramebuffer).noBlend();
-        updatePositionCall.draw();
+            pointCall.texture("dataTex", dataTexA);
+            volumeCall.texture("dataTex", dataTexA);
 
-
-        if (!flag){
-            drawCall.texture("dataTex", dataTexB);
-        }
-        else {
-            drawCall.texture("dataTex", dataTexA);
+            /*noiseCall.texture("noiseTex", noiseTexB);
+            noiseFramebuffer.colorTarget(0, noiseTex)*/
         }
 
         flag = !flag;
-
-        
-
 
         /*
         app.viewport(0, 0, noiseDim, noiseDim);
@@ -807,6 +852,10 @@ app.createPrograms([pointShader, pointFragShader],
         .depthMask(false);
         noiseCall.draw();
         */
+
+        app.viewport(0, 0, dim, dim);
+        app.drawFramebuffer(updateFramebuffer).noBlend();
+        updateCall.draw();
         
 
         app.defaultViewport();
@@ -816,12 +865,10 @@ app.createPrograms([pointShader, pointFragShader],
         .clearColor(0.0, 0.0, 0.0, 1.0)
         .clear()
 
-
         gPass.uniform("view", playerView);
         gPass.draw()
         
 
-        app.defaultViewport();
         app.defaultDrawFramebuffer()
         .blend()
         .blendFunc(PicoGL.ONE, PicoGL.ONE)
@@ -830,19 +877,13 @@ app.createPrograms([pointShader, pointFragShader],
         .clear()
 
 
-        finalPass.draw();
+        objPass.draw();
 
+        pointCall.uniform("view", playerView);
+        pointCall.draw();
 
-        app.defaultDrawFramebuffer().blend().depthMask(true);
-        app.defaultViewport();
-        app.blendFunc(PicoGL.ONE, PicoGL.ONE);
-
-
-
-        drawCall.uniform("view", playerView);
-        drawCall.draw();
-
-
+        volumeCall.uniform("view", playerView);
+        volumeCall.draw();
 
         timer.end();
 

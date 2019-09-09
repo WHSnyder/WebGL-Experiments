@@ -1,5 +1,5 @@
 //Still very unsure of why this must be loaded twice...
-//Duiplicating this logic inside the rendering promise resolution 
+//Duplicating this logic inside the rendering promise resolution 
 //fixed solved the issue where the console had to be open..
 var current_time = 0;
 

@@ -2,8 +2,8 @@ class Player {
 
     constructor(){
 
-        this.eyePt = vec3.fromValues(0.0,0.0,5.0);
-        this.focusVec = vec3.fromValues(0.0,0.0,-40.0);
+        this.eyePt = vec3.fromValues(0.0,0.0,1.2);
+        this.focusVec = vec3.fromValues(0.0,1.0,0.0);
         this.upVec = vec3.fromValues(0.0,1.0,0.0);
         this.focusCoord = vec3.create();
         
@@ -26,9 +26,9 @@ class Player {
 
     move(x,y,z){
 
-        console.log("b4: " + this.eyePt);
+        //console.log("b4: " + this.eyePt);
         vec3.add(this.eyePt, this.eyePt, vec3.fromValues(x,y,z));
-        console.log("af: " + this.eyePt);
+        //console.log("af: " + this.eyePt);
     }
 
     getView(){
