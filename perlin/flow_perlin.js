@@ -209,18 +209,33 @@ layout(location=0) in vec2 dataIndex;
 
 out vec4 color;
 out vec4 position;
+out float pixelRadius;
 
 
 void main(){
 
-    vec4 pos = texture(dataTex, dataIndex/32.0);
+	float radius = .3;
+
+    vec4 pos = texture(dataTex, dataIndex/48.0);
+    vec4 plusRadius = pos + vec4(radius, 0.0, 0.0, 0.0);
+
 
     position = pos;
 
-    gl_Position = frust * view * pos;
-    gl_PointSize = (frust * view * vec4(60.0,0.0,0.0,1.0)).x;
+    mat4 mvp = frust * view;
+    
+    vec4 clipPos = mvp * pos;
+    vec4 clipPlusRadius = mvp * plusRadius;
 
-    color = vec4(1.0,1.0,1.0,0.5);
+    float fraction = abs(clipPlusRadius.x - clipPos.x)/radius;
+
+    pixelRadius = fraction * (radius/2.0) * 1000.0;
+
+
+    gl_Position = clipPos;
+    gl_PointSize = pixelRadius;
+
+    color = vec4(1.0,1.0,1.0,1.0);
 } `;
 
 
@@ -238,43 +253,42 @@ uniform sampler2D gColor;
 
 in vec4 color;
 in vec4 position;
+in float pixelRadius;
 
 out vec4 fragColor;
 
 void main(){
 
+	float radius = 0.3;
+
     fragColor = color;
-    vec2 index = gl_FragCoord.xy/vec2(1400,800);
+    vec2 index = gl_FragCoord.xy/vec2(1000,700);
 
     vec4 norm = texture(gNorm, index);
     vec4 geom = texture(gGeom, index);
     vec4 fColor = texture(gColor, index);
 
     vec4 toPoint = geom - position;
-    float atten = (.1 - clamp(length(toPoint), 0.0, .1))/.1;
+    float atten = (radius - clamp(length(toPoint), 0.0, radius))/radius;
 
     float strength = 0.0;
 
     float fromCenter = length(2.0 * gl_PointCoord - 1.0);
 
-    if (fromCenter > 0.05){
+    if (fromCenter > 2.0/pixelRadius){
     	if (norm.x == 0.0 && norm.y == 0.0 && norm.z == 0.0){
       		discard;
     	}
     	else {
     		strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
-    		fragColor = vec4((atten * strength * fColor).xyz,1.0);
-
-    		if (atten <= 0.3){
-    			discard;
-    		}
+    		fragColor = vec4((atten * strength * fColor));
     	}
     }
-
-    if (fromCenter > .9){
+    
+    if (position.z < geom.z){
     	discard;
-    }
-
+    }	
+    
 } `;
 
 
@@ -467,7 +481,7 @@ let app = PicoGL.createApp(canvas)
 let timer = app.createTimer();
 
 
-const dim = 32;
+const dim = 48;
 
 var NUM_PARTICLES = dim * dim;
 
@@ -833,9 +847,9 @@ app.createPrograms([pointShader, pointFragShader],
         finalPass.draw();
 
 
-        app.defaultDrawFramebuffer().blend().depthMask(true);
+        app.defaultDrawFramebuffer().blend().depthMask(false);
         app.defaultViewport();
-        app.blendFunc(PicoGL.ONE, PicoGL.ONE);
+        app.blendFunc(PicoGL.SRC_COLOR, PicoGL.ONE);
 
 
 
