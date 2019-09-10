@@ -201,6 +201,7 @@ precision highp float;
 precision highp sampler2D;
 
 uniform sampler2D dataTex;
+uniform sampler2D velTex;
 
 uniform mat4 view;
 uniform mat4 frust;
@@ -216,7 +217,9 @@ void main(){
 
 	float radius = .3;
 
-    vec4 pos = texture(dataTex, dataIndex/48.0);
+    vec4 pos = texture(dataTex, dataIndex/32.0);
+    color = vec4(normalize(texture(velTex, dataIndex/32.0).xyz),.3);
+
     vec4 plusRadius = pos + vec4(radius, 0.0, 0.0, 0.0);
 
 
@@ -234,8 +237,6 @@ void main(){
 
     gl_Position = clipPos;
     gl_PointSize = pixelRadius;
-
-    color = vec4(1.0,1.0,1.0,1.0);
 } `;
 
 
@@ -281,7 +282,7 @@ void main(){
     	}
     	else {
     		strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
-    		fragColor = vec4((atten * strength * fColor));
+    		fragColor = vec4((atten * atten * strength * color * fColor));
     	}
     }
     
@@ -366,7 +367,7 @@ void main(){
     
     fGeom = vec4(position, 1.0);
     fNorm = vec4(normal, 0.0);
-    fColor = vec4(0.5, 0.0, 0.7, 1.0);
+    fColor = vec4(0.5, 0.5, 0.5, 1.0);
 
     gl_Position = mvp * vec4(position,1.0);
 }`;
@@ -566,16 +567,16 @@ for (let i = 0; i < noiseDim; ++i) {
 
 let noiseTex = app.createTexture3D(textureData, noiseDim, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA16F, 
-    minFilter: PicoGL.LINEAR,
-    magFilter: PicoGL.LINEAR,
+    minFilter: PicoGL.NEAREST,
+    magFilter: PicoGL.NEAREST,
     wrapS: PicoGL.REPEAT,
     wrapT: PicoGL.REPEAT
 });
 
 let noiseTexB = app.createTexture2D(textureData, noiseDim, noiseDim, { 
     internalFormat: PicoGL.RGBA16F, 
-    minFilter: PicoGL.LINEAR,
-    magFilter: PicoGL.LINEAR,
+    minFilter: PicoGL.NEAREST,
+    magFilter: PicoGL.NEAREST,
     wrapS: PicoGL.REPEAT,
     wrapT: PicoGL.REPEAT
 });
@@ -804,9 +805,12 @@ app.createPrograms([pointShader, pointFragShader],
 
         if (!flag){
             drawCall.texture("dataTex", dataTexB);
+            drawCall.texture("velTex", velTexB)
         }
         else {
             drawCall.texture("dataTex", dataTexA);
+            drawCall.texture("velTex", velTexA)
+
         }
 
         flag = !flag;
