@@ -197,14 +197,15 @@ SimplexNoise.prototype.noise3d = function(xin, yin, zin) {
 var pointVert =
 `#version 300 es
 
-precision highp float;
-precision highp sampler2D;
+precision mediump float;
+precision mediump sampler2D;
 
 uniform sampler2D dataTex;
 uniform sampler2D velTex;
 
 uniform mat4 view;
 uniform mat4 frust;
+uniform float numParticles;
 
 layout(location=0) in vec2 dataIndex;
 
@@ -215,10 +216,10 @@ out float pixelRadius;
 
 void main(){
 
-	float radius = .3;
+	float radius = .5;
 
-    vec4 pos = texture(dataTex, dataIndex/32.0);
-    color = vec4(normalize(texture(velTex, dataIndex/32.0).xyz),.3);
+    vec4 pos = texture(dataTex, dataIndex/numParticles);
+    color = normalize(vec4(texture(velTex, dataIndex/numParticles).xyz,.75));
 
     vec4 plusRadius = pos + vec4(radius, 0.0, 0.0, 0.0);
 
@@ -244,7 +245,7 @@ void main(){
 var pointFrag = 
 `#version 300 es
 
-precision highp float;
+precision mediump float;
 
 uniform mat4 frust;
 uniform mat4 view;
@@ -260,12 +261,22 @@ out vec4 fragColor;
 
 void main(){
 
-	float radius = 0.3;
+	float fromCenter = length(2.0 * gl_PointCoord - 1.0);
+	vec2 index = gl_FragCoord.xy/vec2(1000,700);
+
+	vec4 norm = texture(gNorm, index);
+	bool within = fromCenter < (2.0/pixelRadius) ? true : false;
+
+	if (!within && norm.x == 0.0 && norm.y == 0.0 && norm.z == 0.0){
+		discard;
+	}
+
+
+
+	float radius = 0.5;
 
     fragColor = color;
-    vec2 index = gl_FragCoord.xy/vec2(1000,700);
 
-    vec4 norm = texture(gNorm, index);
     vec4 geom = texture(gGeom, index);
     vec4 fColor = texture(gColor, index);
 
@@ -274,22 +285,16 @@ void main(){
 
     float strength = 0.0;
 
-    float fromCenter = length(2.0 * gl_PointCoord - 1.0);
 
-    if (fromCenter > 2.0/pixelRadius){
-    	if (norm.x == 0.0 && norm.y == 0.0 && norm.z == 0.0){
-      		discard;
-    	}
-    	else {
-    		strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
-    		fragColor = vec4((atten * atten * strength * color * fColor));
-    	}
+    if (!within){
+
+    	strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
+    	fragColor = vec4((1.5 * atten * atten * strength * color * fColor));
     }
     
     if (position.z < geom.z){
     	discard;
-    }	
-    
+    }	    
 } `;
 
 
@@ -310,9 +315,9 @@ void main() {
 var pointVelFrag = 
 `#version 300 es
 
-precision highp float;
-precision highp sampler3D;
-precision highp sampler2D;
+precision mediump float;
+precision mediump sampler3D;
+precision mediump sampler2D;
 
 uniform sampler2D dataTex;
 uniform sampler2D velTex;
@@ -343,8 +348,8 @@ void main(){
 var objectVShader = 
 `#version 300 es
 
-precision highp float;
-precision highp sampler2D;
+precision mediump float;
+precision mediump sampler2D;
 
 uniform float timeDiff;
 
@@ -378,7 +383,7 @@ void main(){
 var objectFShader = 
 `#version 300 es
 
-precision highp float;
+precision mediump float;
 
 in vec4 fNorm;
 in vec4 fGeom;
@@ -400,8 +405,8 @@ void main(){
 var lightPassFShader = 
 `#version 300 es
 
-precision highp float;
-precision highp sampler2D;
+precision mediump float;
+precision mediump sampler2D;
 
 uniform sampler2D gNorms;
 uniform sampler2D gColor;
@@ -433,8 +438,8 @@ void main(){
 var noiseViz = 
 `#version 300 es
 
-precision highp float;
-precision highp sampler2D;
+precision mediump float;
+precision mediump sampler2D;
 
 uniform sampler2D noiseTex;
 
@@ -482,7 +487,7 @@ let app = PicoGL.createApp(canvas)
 let timer = app.createTimer();
 
 
-const dim = 48;
+const dim = 28;
 
 var NUM_PARTICLES = dim * dim;
 
@@ -498,8 +503,8 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
     posIndicies[i/2] = (i/4) % dim;
     posIndicies[i/2 + 1] = Math.floor((i/4)/dim);
 
-    posData[i] = 1 * (Math.random() * 2 - 1);
-    posData[i + 1] = 1 * (Math.random() * 2 - 1);
+    posData[i] = .5 * (Math.random() * 2 - 1);
+    posData[i + 1] = 2 * (Math.random() * 2 - 1);
     posData[i + 2] = 1 * (Math.random() * 2 - 1);
     posData[i + 3] = 1.0;
 
@@ -615,6 +620,11 @@ let velTexB  = app.createTexture2D(velData, dim, dim, {
 });
 
 
+let threeTex = app.createTexture2D(app.width, app.height, {
+    internalFormat: PicoGL.RGBA16F
+});
+
+
 //let gNormalsArray = new Float32Array(canvas.width * canvas.height * 4);
 
 
@@ -639,6 +649,9 @@ let gBuffer = app.createFramebuffer(app.width, app.height)
 .colorTarget(1, gGeometry)
 .colorTarget(2, gMaterial)
 .depthTarget(depthTarget);
+
+let threeTarget = app.createFramebuffer(app.width, app.height)
+.colorTarget(0, threeTex);
 
 
 
@@ -725,6 +738,7 @@ app.createPrograms([pointShader, pointFragShader],
     .texture("gColor", gBuffer.colorAttachments[2])
     .uniform("view", player.getView())
     .uniform("frust", projMatrix)
+    .uniform("numParticles", dim)
 
     let noiseCall = app.createDrawCall(noiseProgram, quadArray)
     .texture("noiseTex", noiseTex)
@@ -738,6 +752,127 @@ app.createPrograms([pointShader, pointFragShader],
     .texture("gNorms", gBuffer.colorAttachments[0])
     .texture("gColor", gBuffer.colorAttachments[2])
     .primitive(PicoGL.TRIANGLES);
+
+
+
+    var renderer = new THREE.WebGLRenderer({ canvas: view, context: app.gl } );
+
+
+
+
+	const WIDTH = app.width;
+    const HEIGHT = app.height;
+
+    // Set some camera attributes.
+    const VIEW_ANGLE = 45;
+    const ASPECT = WIDTH / HEIGHT;
+    const NEAR = 0.1;
+    const FAR = 10000;
+
+    // Get the DOM element to attach to
+    const container =
+        document.querySelector('#three');
+
+    // Create a WebGL renderer, camera
+    // and a scene
+    //const renderer = new THREE.WebGLRenderer();
+    const camera =
+        new THREE.PerspectiveCamera(
+            VIEW_ANGLE,
+            ASPECT,
+            NEAR,
+            FAR
+        );
+
+    const scene = new THREE.Scene();
+
+    // Add the camera to the scene.
+    scene.add(camera);
+
+    // Start the renderer.
+    renderer.setSize(WIDTH, HEIGHT);
+
+    // Attach the renderer-supplied
+    // DOM element.
+    //container.appendChild(renderer.domElement);
+
+    // create a point light
+    const pointLight =
+      new THREE.PointLight(0xFFFFFF);
+
+    // set its position
+    pointLight.position.x = 10;
+    pointLight.position.y = 50;
+    pointLight.position.z = 130;
+
+    // add to the scene
+    scene.add(pointLight);
+
+    // create the sphere's material
+    const sphereMaterial =
+      new THREE.MeshLambertMaterial(
+        {
+          color: 0xCC0000
+        });
+
+    // Set up the sphere vars
+    const RADIUS = 50;
+    const SEGMENTS = 16;
+    const RINGS = 16;
+
+    // Create a new mesh with
+    // sphere geometry - we will cover
+    // the sphereMaterial next!
+    const sphere = new THREE.Mesh(
+
+      new THREE.SphereGeometry(
+        RADIUS,
+        SEGMENTS,
+        RINGS),
+
+      sphereMaterial);
+
+    // Move the Sphere back in Z so we
+    // can see it.
+    sphere.position.z = -300;
+
+    // Finally, add the sphere to the scene.
+    scene.add(sphere);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -755,6 +890,14 @@ app.createPrograms([pointShader, pointFragShader],
             player.move(-0.1,0.0,0.0);
         }
 
+        if (keyMap.get(87)){
+            player.move(0.0,0.0,-0.1);
+        }
+
+        if (keyMap.get(83)){
+            player.move(0.0,0.0,0.1);
+        }
+
         if (!mouseRead){
 
             player.rotate(player.left, deltamY/100);
@@ -765,7 +908,7 @@ app.createPrograms([pointShader, pointFragShader],
 
         playerView = player.getView()
 
-
+        /*
         
         if (timer.ready()) {
             utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
@@ -813,7 +956,7 @@ app.createPrograms([pointShader, pointFragShader],
 
         }
 
-        flag = !flag;
+        flag = !flag;*/
 
         
 
@@ -826,7 +969,7 @@ app.createPrograms([pointShader, pointFragShader],
         noiseCall.draw();
         */
         
-
+/*
         app.defaultViewport();
         app.drawFramebuffer(gBuffer)
         .depthMask(true)
@@ -851,18 +994,24 @@ app.createPrograms([pointShader, pointFragShader],
         finalPass.draw();
 
 
-        app.defaultDrawFramebuffer().blend().depthMask(false);
+        app.drawFramebuffer(threeTarget).blend().depthMask(false);
         app.defaultViewport();
         app.blendFunc(PicoGL.SRC_COLOR, PicoGL.ONE);
 
 
 
         drawCall.uniform("view", playerView);
-        drawCall.draw();
+        drawCall.draw();*/
+
+        renderer.render(scene, camera);
 
 
 
-        timer.end();
+
+
+
+
+        //timer.end();
 
         requestAnimationFrame(draw);
     }
@@ -884,21 +1033,6 @@ app.createPrograms([pointShader, pointFragShader],
 
     var down = false,up = false;
     var lastX = 0,lastY = 0;
-
-
-
-
-
-
-    function updateClick(){
-
-        clicktime = performance.now()/1000;
-        vec3.add(clickpos, player.focusVec, player.eyePt);
-
-        clickData.set(0, clicktime)
-        .set(1, clickpos)
-        .update()
-    }
 
 
 
@@ -966,7 +1100,6 @@ app.createPrograms([pointShader, pointFragShader],
         picked = true; 
     });
     window.addEventListener("mousemove", mouseHandler, false);
-    window.addEventListener("click", updateClick, false);
 
 
     requestAnimationFrame(draw);
