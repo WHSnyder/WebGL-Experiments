@@ -194,7 +194,7 @@ SimplexNoise.prototype.noise3d = function(xin, yin, zin) {
 
 
 
-var pointVert =
+var pointLightVert =
 `#version 300 es
 
 precision mediump float;
@@ -218,31 +218,32 @@ void main(){
 
 	float radius = .5;
 
-    vec4 pos = texture(dataTex, dataIndex/numParticles);
-    color = normalize(vec4(texture(velTex, dataIndex/numParticles).xyz,.75));
+  vec4 pos = texture(dataTex, dataIndex/numParticles);
+  color = abs(normalize(vec4(texture(velTex, dataIndex/numParticles).xyz,.75)));
 
-    vec4 plusRadius = pos + vec4(radius, 0.0, 0.0, 0.0);
-
-
-    position = pos;
-
-    mat4 mvp = frust * view;
-    
-    vec4 clipPos = mvp * pos;
-    vec4 clipPlusRadius = mvp * plusRadius;
-
-    float fraction = abs(clipPlusRadius.x - clipPos.x)/radius;
-
-    pixelRadius = fraction * (radius/2.0) * 1000.0;
+  vec4 plusRadius = pos + vec4(radius, 0.0, 0.0, 0.0);
 
 
-    gl_Position = clipPos;
-    gl_PointSize = pixelRadius;
+  position = pos;
+
+  mat4 mvp = frust * view;
+  
+  vec4 clipPos = mvp * pos;
+  vec4 clipPlusRadius = mvp * plusRadius;
+
+  float fraction = abs(clipPlusRadius.x - clipPos.x)/radius;
+
+  pixelRadius = fraction * (radius/2.0) * 1000.0;
+  
+
+  clipPos.z = .95;
+  gl_Position = clipPos;
+  gl_PointSize = pixelRadius;
 } `;
 
 
 
-var pointFrag = 
+var pointLightFrag = 
 `#version 300 es
 
 precision mediump float;
@@ -290,16 +291,58 @@ void main(){
 
     	strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
     	fragColor = vec4((1.5 * atten * atten * strength * color * fColor));
-    }
-    
-    if (position.z < geom.z){
-    	discard;
-    }	    
+    } 
 } `;
 
 
-var quad_vs = 
+var pointVert = 
 `#version 300 es  
+
+precision mediump float;
+precision mediump sampler2D;
+
+uniform sampler2D dataTex;
+uniform sampler2D velTex;
+
+uniform mat4 view;
+uniform mat4 frust;
+uniform float numParticles;
+
+layout(location=0) in vec2 dataIndex;
+
+out vec4 color;
+
+
+void main(){
+
+
+  color = abs(normalize(vec4(texture(velTex, dataIndex/numParticles).xyz,.75)));
+  gl_Position = frust * view * texture(dataTex, dataIndex/numParticles);
+  gl_PointSize = 3.0;
+
+}`;
+
+
+
+var pointFrag = 
+`#version 300 es  
+
+precision mediump float;
+
+in vec4 color;
+out vec4 fragColor;
+
+void main() {
+
+    fragColor = color;
+}
+`;
+
+
+var quad_vs = 
+`#version 300 es
+
+uniform float depth;  
 
 layout(location=0) in vec2 aPosition;
 
@@ -308,7 +351,7 @@ out vec2 index;
 void main() {
 
     index = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition,0.0,1.0);
+    gl_Position = vec4(aPosition,depth,1.0);
 }`;
 
 
@@ -350,8 +393,6 @@ var objectVShader =
 
 precision mediump float;
 precision mediump sampler2D;
-
-uniform float timeDiff;
 
 uniform mat4 view;
 uniform mat4 frust;
@@ -455,6 +496,61 @@ void main(){
 }`;
 
 
+var depthVert = 
+`#version 300 es
+
+precision mediump float;
+
+uniform mat4 frust;
+uniform mat4 view;
+
+layout(location=0) in vec3 normal;
+layout(location=1) in vec3 position;
+
+out vec4 fragColor;
+
+
+void main(){
+
+    fragColor = vec4(0.5, 0.5, 0.5, 0.0);
+    gl_Position = frust * view * vec4(position,1.0); 
+}`;
+
+
+var depthFrag = 
+`#version 300 es
+
+precision mediump float;
+
+
+in vec4 fragColor;
+
+out vec4 color;
+
+
+void main(){
+
+    color = fragColor; 
+}`;
+
+
+var backboardFrag = 
+`#version 300 es
+
+precision mediump float;
+
+
+in vec2 index;
+
+out vec4 color;
+
+
+void main(){
+
+    color = vec4(0.0,0.0,0.0,1.0); 
+}`;
+
+
 
 
 
@@ -480,6 +576,7 @@ let canvas = document.getElementById("view");
 let app = PicoGL.createApp(canvas)
 .clearColor(0.0, 0.0, 0.0, 1.0)
 .depthTest()
+.cullBackfaces()
 .depthFunc(PicoGL.LEQUAL)
 .blendFunc(PicoGL.ONE, PicoGL.ONE);
 
@@ -487,7 +584,7 @@ let app = PicoGL.createApp(canvas)
 let timer = app.createTimer();
 
 
-const dim = 28;
+const dim = 48;
 
 var NUM_PARTICLES = dim * dim;
 
@@ -706,31 +803,47 @@ var frameNum = 0;
 
 
 let quadShader = app.createShader(PicoGL.VERTEX_SHADER, quad_vs);
+
 let noiseVizShader = app.createShader(PicoGL.FRAGMENT_SHADER, noiseViz);
+
 let velUpdateShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointVelFrag);
-let pointShader = app.createShader(PicoGL.VERTEX_SHADER, pointVert);
+
+let pointLightVertShader = app.createShader(PicoGL.VERTEX_SHADER, pointLightVert);
+let pointLightFragShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointLightFrag);
+
+let pointVertShader = app.createShader(PicoGL.VERTEX_SHADER, pointVert);
 let pointFragShader = app.createShader(PicoGL.FRAGMENT_SHADER, pointFrag);
 
 
 let timeNow = performance.now()/1000;
 let lastTime = timeNow;
 
-app.createPrograms([pointShader, pointFragShader], 
+var cont = 1;
+
+app.createPrograms([pointLightVertShader, pointLightFragShader],
+                   [pointVertShader, pointFragShader], 
                    [quadShader, velUpdateShader], 
                    [quadShader, noiseVizShader],
                    [objectVShader, objectFShader],
-                   [quadShader, lightPassFShader])
+                   [quadShader, lightPassFShader],
+                   [depthVert, depthFrag],
+                   [quadShader, backboardFrag])
                   .then((
-                    [pointProgram, updateProgram, noiseProgram, objProgram, finalProgram]
+                    [pointLightProgram, pointProgram,
+                     updateProgram, noiseProgram, objProgram, 
+                     globalLightProgram, depthProgram, 
+                     backboardProgram]
                    ) => {
     
     let updatePositionCall = app.createDrawCall(updateProgram, quadArray)
+    .uniform("depth", 0.0)
     .primitive(PicoGL.TRIANGLES)
     .texture("dataTex", dataTexA)
     .texture("flowField", noiseTex)
     .texture("velTex", velTexA);
 
-    let drawCall = app.createDrawCall(pointProgram, points)
+
+    let lightsPass = app.createDrawCall(pointLightProgram, points)
     .primitive(PicoGL.POINTS)
     .texture("dataTex", dataTexA)
     .texture("gNorm", gBuffer.colorAttachments[0])
@@ -740,7 +853,15 @@ app.createPrograms([pointShader, pointFragShader],
     .uniform("frust", projMatrix)
     .uniform("numParticles", dim)
 
+    let pointsPass = app.createDrawCall(pointProgram, points)
+    .primitive(PicoGL.POINTS)
+    .texture("dataTex", dataTexA)
+    .uniform("view", player.getView())
+    .uniform("frust", projMatrix)
+    .uniform("numParticles", dim)
+
     let noiseCall = app.createDrawCall(noiseProgram, quadArray)
+    .uniform("depth", 0.0)
     .texture("noiseTex", noiseTex)
     .primitive(PicoGL.TRIANGLES);
 
@@ -748,19 +869,25 @@ app.createPrograms([pointShader, pointFragShader],
     .uniform("frust", projMatrix)
     .primitive(PicoGL.TRIANGLES);
 
-    let finalPass = app.createDrawCall(finalProgram, quadArray)
+    let globalLightPass = app.createDrawCall(globalLightProgram, quadArray)
+    .uniform("depth", 0.0)
     .texture("gNorms", gBuffer.colorAttachments[0])
     .texture("gColor", gBuffer.colorAttachments[2])
     .primitive(PicoGL.TRIANGLES);
 
+    let depthPass = app.createDrawCall(depthProgram, catArray)
+    .uniform("frust", projMatrix)
+    .primitive(PicoGL.TRIANGLES)
+
+    let backboardPass = app.createDrawCall(backboardProgram, quadArray)
+    .uniform("depth", .95)
+    .primitive(PicoGL.TRIANGLES)
 
 
-    var renderer = new THREE.WebGLRenderer({ canvas: view, context: app.gl } );
 
-
-
-
-	const WIDTH = app.width;
+    //var renderer = new THREE.WebGLRenderer({ canvas: view, context: app.gl } );
+/*
+	  const WIDTH = app.width;
     const HEIGHT = app.height;
 
     // Set some camera attributes.
@@ -775,7 +902,7 @@ app.createPrograms([pointShader, pointFragShader],
 
     // Create a WebGL renderer, camera
     // and a scene
-    //const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer();
     const camera =
         new THREE.PerspectiveCamera(
             VIEW_ANGLE,
@@ -794,14 +921,14 @@ app.createPrograms([pointShader, pointFragShader],
 
     // Attach the renderer-supplied
     // DOM element.
-    //container.appendChild(renderer.domElement);
+    container.appendChild(renderer.domElement);
 
     // create a point light
     const pointLight =
-      new THREE.PointLight(0xFFFFFF);
+      new THREE.PointLight(0xFEFEFE);
 
     // set its position
-    pointLight.position.x = 10;
+    pointLight.position.x = 0;
     pointLight.position.y = 50;
     pointLight.position.z = 130;
 
@@ -816,13 +943,15 @@ app.createPrograms([pointShader, pointFragShader],
         });
 
     // Set up the sphere vars
-    const RADIUS = 50;
+    const RADIUS = 100;
     const SEGMENTS = 16;
     const RINGS = 16;
 
-    // Create a new mesh with
-    // sphere geometry - we will cover
-    // the sphereMaterial next!
+
+    var canvasTexture = new THREE.CanvasTexture(canvas);
+    var canvasMaterial = new THREE.MeshBasicMaterial({ map: canvasTexture });
+
+
     const sphere = new THREE.Mesh(
 
       new THREE.SphereGeometry(
@@ -830,7 +959,7 @@ app.createPrograms([pointShader, pointFragShader],
         SEGMENTS,
         RINGS),
 
-      sphereMaterial);
+      canvasMaterial);
 
     // Move the Sphere back in Z so we
     // can see it.
@@ -838,47 +967,14 @@ app.createPrograms([pointShader, pointFragShader],
 
     // Finally, add the sphere to the scene.
     scene.add(sphere);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-   
+*/
+ 
     
     function draw() {
+
+        if (cont == 0){
+          return;
+        }
 
 
         if (keyMap.get(65)){
@@ -908,7 +1004,7 @@ app.createPrograms([pointShader, pointFragShader],
 
         playerView = player.getView()
 
-        /*
+        
         
         if (timer.ready()) {
             utils.updateTimerElement(timer.cpuTime, timer.gpuTime);
@@ -947,16 +1043,22 @@ app.createPrograms([pointShader, pointFragShader],
 
 
         if (!flag){
-            drawCall.texture("dataTex", dataTexB);
-            drawCall.texture("velTex", velTexB)
+            lightsPass.texture("dataTex", dataTexB);
+            lightsPass.texture("velTex", velTexB);
+
+            pointsPass.texture("dataTex", dataTexB);
+            pointsPass.texture("velTex", velTexB);
         }
         else {
-            drawCall.texture("dataTex", dataTexA);
-            drawCall.texture("velTex", velTexA)
+            lightsPass.texture("dataTex", dataTexA);
+            lightsPass.texture("velTex", velTexA);
+
+            pointsPass.texture("dataTex", dataTexA);
+            pointsPass.texture("velTex", velTexA);
 
         }
 
-        flag = !flag;*/
+        flag = !flag;
 
         
 
@@ -966,10 +1068,10 @@ app.createPrograms([pointShader, pointFragShader],
         app.drawFramebuffer(noiseFramebuffer)
         .noBlend()
         .depthMask(false);
-        noiseCall.draw();
-        */
+        noiseCall.draw();*/
         
-/*
+      
+
         app.defaultViewport();
         app.drawFramebuffer(gBuffer)
         .depthMask(true)
@@ -980,38 +1082,49 @@ app.createPrograms([pointShader, pointFragShader],
 
         gPass.uniform("view", playerView);
         gPass.draw()
-        
 
-        app.defaultViewport();
         app.defaultDrawFramebuffer()
-        .blend()
-        .blendFunc(PicoGL.ONE, PicoGL.ONE)
-        .depthMask(false)
         .clearColor(0.0, 0.0, 0.0, 1.0)
         .clear()
+        .depthMask(true).
+        blendFunc(PicoGL.ZERO, PicoGL.ONE)
+        backboardPass.draw()       
+
+        
+
+        app.blend()
+        .blendFunc(PicoGL.ONE, PicoGL.ONE)
+        .depthMask(false)
 
 
-        finalPass.draw();
+        globalLightPass.draw();
 
 
-        app.drawFramebuffer(threeTarget).blend().depthMask(false);
-        app.defaultViewport();
+        depthPass.uniform("view", playerView)
+        app.blendFunc(PicoGL.ZERO, PicoGL.ONE)
+        .depthMask(true)
+        .depthFunc(PicoGL.LEQUAL)
+        depthPass.draw()
+
+
+        app.depthTest(PicoGL.NOTEQUAL).depthMask(false);
         app.blendFunc(PicoGL.SRC_COLOR, PicoGL.ONE);
 
+        lightsPass.uniform("view", playerView);
+        lightsPass.draw();
 
 
-        drawCall.uniform("view", playerView);
-        drawCall.draw();*/
+        app.depthTest(PicoGL.LEQUAL).depthMask(false);
 
-        renderer.render(scene, camera);
+        pointsPass.uniform("view", playerView);
+        pointsPass.draw();
+
+        //canvasTexture.needsUpdate = true;
+        //app.drawFramebuffer(threeTarget).blend().depthMask(false);
+        //renderer.render(scene, camera);
 
 
-
-
-
-
-
-        //timer.end();
+        timer.end();
 
         requestAnimationFrame(draw);
     }
