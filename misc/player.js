@@ -3,7 +3,7 @@ class Player {
     constructor(){
 
         this.eyePt = vec3.fromValues(0.0,0.0,2);
-        this.focusVec = vec3.fromValues(0.0,1.0,-40);
+        this.focusVec = vec3.fromValues(0.0,0.0,-40);
         this.upVec = vec3.fromValues(0.0,1.0,0.0);
         this.focusCoord = vec3.create();
         
