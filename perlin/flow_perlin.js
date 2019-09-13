@@ -203,9 +203,10 @@ precision mediump sampler2D;
 uniform sampler2D dataTex;
 uniform sampler2D velTex;
 
-uniform mat4 view;
-uniform mat4 frust;
+uniform mat4 mvp;
+
 uniform float numParticles;
+uniform float radius;
 
 layout(location=0) in vec2 dataIndex;
 
@@ -215,17 +216,12 @@ out vec4 position;
 
 void main(){
 
-	float radius = .4;
-
   	vec4 pos = texture(dataTex, dataIndex/numParticles);
   	color = abs(normalize(vec4(texture(velTex, dataIndex/numParticles).xyz,.75)));
 
   	vec4 plusRadius = pos + vec4(radius, 0.0, 0.0, 0.0);
 
-
   	position = pos;
-
- 	mat4 mvp = frust * view;
   
   	vec4 clipPos = mvp * pos;
   	vec4 clipPlusRadius = mvp * plusRadius;
@@ -242,11 +238,11 @@ var pointLightFrag =
 
 precision mediump float;
 
-uniform mat4 frust;
-uniform mat4 view;
 uniform sampler2D gNorm;
 uniform sampler2D gGeom;
 uniform sampler2D gColor;
+
+uniform float radius;
 
 in vec4 color;
 in vec4 position;
@@ -261,13 +257,11 @@ void main(){
   vec4 geom = texture(gGeom, index);
   vec4 fColor = texture(gColor, index);
 
-  float radius = 0.4;
-
   vec4 toPoint = geom - position;
   float atten = (radius - clamp(length(toPoint), 0.0, radius))/radius;
 
   float strength = 0.0 - clamp(dot(normalize(toPoint), norm), -1.0, 0.0);
-  fragColor = vec4(1.2 * atten * atten * strength * color * fColor);    
+  fragColor = vec4(atten * atten * strength * color * fColor);    
 } `;
 
 
@@ -281,8 +275,8 @@ precision mediump sampler2D;
 uniform sampler2D dataTex;
 uniform sampler2D velTex;
 
-uniform mat4 view;
-uniform mat4 frust;
+uniform mat4 mvp;
+//uniform mat4 frust;
 uniform float numParticles;
 
 layout(location=0) in vec2 dataIndex;
@@ -293,7 +287,7 @@ out vec4 color;
 void main(){
 
   color = abs(normalize(vec4(texture(velTex, dataIndex/numParticles).xyz,.75)));
-  gl_Position = frust * view * texture(dataTex, dataIndex/numParticles);
+  gl_Position = mvp * texture(dataTex, dataIndex/numParticles);
   gl_PointSize = 2.0;
 }`;
 
@@ -367,8 +361,8 @@ var objGPassVert =
 precision mediump float;
 precision mediump sampler2D;
 
-uniform mat4 view;
-uniform mat4 frust;
+uniform mat4 mvp;
+//uniform mat4 frust;
 
 
 layout(location=0) in vec3 normal;
@@ -381,8 +375,6 @@ out vec4 fColor;
 
 
 void main(){
-
-    mat4 mvp = frust * view;
     
     fGeom = vec4(position, 1.0);
     fNorm = vec4(normal, 0.0);
@@ -474,8 +466,8 @@ var depthVert =
 
 precision mediump float;
 
-uniform mat4 frust;
-uniform mat4 view;
+//uniform mat4 frust;
+uniform mat4 mvp;
 
 layout(location=0) in vec3 normal;
 layout(location=1) in vec3 position;
@@ -486,7 +478,7 @@ out vec4 fragColor;
 void main(){
 
     fragColor = vec4(0.5, 0.5, 0.5, 1.0);
-    gl_Position = frust * view * vec4(position,1.0); 
+    gl_Position = mvp * vec4(position,1.0); 
 }`;
 
 
@@ -547,7 +539,8 @@ let app = PicoGL.createApp(canvas, {stencil:true})
 let timer = app.createTimer();
 
 
-const dim = 48;
+const dim = 50;
+const radius = 0.5;
 
 var NUM_PARTICLES = dim * dim;
 
@@ -760,6 +753,8 @@ mat4.perspective(projMatrix, Math.PI / 2, canvas.width / canvas.height, 0.1, nul
 var frust = mat4.create();
 mat4.perspective(frust, Math.PI/2, 1000/700, .1, null);
 
+var mvp = mat4.create()
+
 
 
 var flag = false;
@@ -792,6 +787,7 @@ let timeNow = performance.now()/1000;
 let lastTime = timeNow;
 
 var cont = 1;
+var moved = false;
 
 app.createPrograms([pointLightVertShader, pointLightFragShader],
                    [pointVertShader, pointFragShader], 
@@ -815,16 +811,14 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
     .texture("gNorm", gBuffer.colorAttachments[0])
     .texture("gGeom", gBuffer.colorAttachments[1])
     .texture("gColor", gBuffer.colorAttachments[2])
-    .uniform("frust", frust)
     .uniform("numParticles", dim)
+    .uniform("radius", radius)
 
     let pointsPass = app.createDrawCall(pointProgram, points)
     .primitive(PicoGL.POINTS)
-    .uniform("frust", frust)
     .uniform("numParticles", dim)
 
     let gPass = app.createDrawCall(gPassProgram, catArray)
-    .uniform("frust", frust)
     .primitive(PicoGL.TRIANGLES);
 
     let globalLightPass = app.createDrawCall(globalLightProgram, quadArray)
@@ -833,7 +827,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
     .primitive(PicoGL.TRIANGLES);
 
     let depthPass = app.createDrawCall(depthProgram, catArray)
-    .uniform("frust", frust)
     .primitive(PicoGL.TRIANGLES)
 
     /*
@@ -934,29 +927,41 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
         }
 
 
+
+
         if (keyMap.get(65)){
             player.move(0.1,0.0,0.0);
+            moved = true;
         }
 
         if (keyMap.get(68)){
             player.move(-0.1,0.0,0.0);
+            moved = true;
         }
 
         if (keyMap.get(87)){
             player.move(0.0,0.0,-0.1);
+            moved = true;
         }
 
         if (keyMap.get(83)){
             player.move(0.0,0.0,0.1);
+            moved = true;
         }
 
         if (!mouseRead){
             player.rotate(player.left, deltamY/100);
             player.rotate(g_up, -deltamX/100);
             mouseRead = true;
+            moved = true;
+
         }
 
-        playerView = player.getView()
+        if (moved){
+	        playerView = player.getView()
+	        mat4.multiply(mvp, frust, playerView)
+	        moved = false;
+    	}	
         
 
         if (timer.ready()) {
@@ -1029,7 +1034,7 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
         .clearColor(0.0, 0.0, 0.0, 1.0)
         .clear()
 
-        gPass.uniform("view", playerView);
+        gPass.uniform("mvp", mvp);
         gPass.draw()     
         
 
@@ -1051,7 +1056,7 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
         .stencilFunc(PicoGL.ALWAYS, 1, 0xFF)
         .stencilOp(PicoGL.KEEP, PicoGL.KEEP, PicoGL.REPLACE)
         .stencilMask(0xFFFF);
-        depthPass.uniform("view", playerView)
+        depthPass.uniform("mvp", mvp)
         depthPass.draw()
 
 
@@ -1062,11 +1067,11 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
  		.stencilMask(0);
 
 
-        lightsPass.uniform("view", playerView);
+        lightsPass.uniform("mvp", mvp);
         lightsPass.draw();
 
         app.noStencilTest()
-        pointsPass.uniform("view", playerView);
+        pointsPass.uniform("mvp", mvp);
         pointsPass.draw();
 
 
