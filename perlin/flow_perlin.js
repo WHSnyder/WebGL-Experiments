@@ -532,7 +532,7 @@ let app = PicoGL.createApp(canvas, {stencil:true})
 .stencilTest()
 .stencilOp(PicoGL.KEEP, PicoGL.KEEP, PicoGL.REPLACE)
 .blend()
-//.cullBackfaces()
+.cullBackfaces()
 .blendFunc(PicoGL.ONE, PicoGL.ONE);
 
 
@@ -926,9 +926,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
           return;
         }
 
-
-
-
         if (keyMap.get(65)){
             player.move(0.1,0.0,0.0);
             moved = true;
@@ -954,7 +951,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
             player.rotate(g_up, -deltamX/100);
             mouseRead = true;
             moved = true;
-
         }
 
         if (moved){
@@ -1044,7 +1040,7 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
         .depthMask(false)
         .clear()
 
-        globalLightPass.draw();
+        //globalLightPass.draw();
 
 
 
@@ -1062,7 +1058,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
 
         app.depthMask(false)
  	    .blendFunc(PicoGL.SRC_COLOR, PicoGL.ONE)
- 	    .depthTest()
  		.stencilFunc(PicoGL.EQUAL, 1, 0xFF)
  		.stencilMask(0);
 
