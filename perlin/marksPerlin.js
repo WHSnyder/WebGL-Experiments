@@ -159,13 +159,14 @@ float rand(vec2 co){
 
 
 void main() {
-  vec3 randoffset = vec3(rand(vec2(timer,index.x)), rand(vec2(index.y,timer/10.0)), rand(vec2(timer,index.x)))/1000.0;
-  vec3 pos = (texture( startTex, index ).xyz + randoffset); 
+  //vec3 randoffset = vec3(rand(vec2(timer,index.x)), rand(vec2(index.y,timer/10.0)), rand(vec2(timer,index.x)))/1000.0;
+  float rando = rand(vec2(timer * timer * index.y, timer * index.x * index.y));
+  vec3 pos = texture( startTex, index ).xyz;
   
   vec3 inc = vec3(0.0);
   inc.x = snoise(vec4(pos.x, pos.y, pos.z, timer/10000.0)) * 0.01;
-  inc.y = snoise(vec4(pos.y, pos.x, pos.z, 1.352+timer/10000.0)) * 0.01;
-  inc.z = snoise(vec4(pos.z, pos.y, pos.x, 12.352+timer/10000.0)) * 0.01;
+  inc.y = snoise(vec4(pos.x, pos.y, pos.z, 1.352+timer/10000.0)) * 0.01;
+  inc.z = snoise(vec4(pos.x, pos.y, pos.z, 12.352+timer/10000.0)) * 0.01;
 
   pos = 1.5 * pos + 50.0 * inc;
 
@@ -487,7 +488,7 @@ let app = PicoGL.createApp(canvas, {stencil:true})
 let timer = app.createTimer();
 
 
-const dim = 50;
+const dim = 40;
 const radius = 0.5;
 
 var NUM_PARTICLES = dim * dim;

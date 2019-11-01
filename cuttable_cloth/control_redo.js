@@ -1,5 +1,5 @@
 //Still very unsure of why this must be loaded twice...
-//Duplicating this logic inside the rendering promise resolution 
+//Duiplicating this logic inside the rendering promise resolution 
 //fixed solved the issue where the console had to be open..
 var current_time = 0;
 
@@ -57,47 +57,6 @@ function trackMovement(e){
 
 
 
-function updateClick(){
-
-    clicktime = performance.now()/1000;
-    vec3.add(clickpos, player.focusVec, player.eyePt);
-
-    clickData.set(0, clicktime)
-	.set(1, clickpos)
-	.update()
-}
-
-
-
-function mouseHandler(e){
-
-    mouseRead = false;
-
-    if (!mouseInitialized){
-        deltamX = 0;
-        deltamY = 0;
-        mouseInitialized = true;
-    }
-    else {
-        deltamX = e.pageX - mouseX;
-        deltamY = e.pageY - mouseY;
-    }
-
-    mouseX = e.pageX;
-    mouseY = e.pageY;
-}
-
-
-function updateRect(){
-
-    //console.log("updated...")
-
-    //rect = canvas.getBoundingClientRect();
-    //window_offset = vec2.fromValues(rect.left, rect.bottom);
-    //window_scale = vec2.fromValues(rect.width, rect.height);
-
-    //reset = true;
-}
 
 
 var keyMap = new Map();
@@ -143,5 +102,4 @@ window.addEventListener("keyup", keyup, false);
 window.addEventListener("mousedown", function(){down = true}, false);
 window.addEventListener("mouseup", function(){down = false; reset = true}, false);
 window.addEventListener("mousemove", trackMovement, false);
-
 
