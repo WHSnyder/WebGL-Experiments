@@ -168,7 +168,8 @@ void main() {
   inc.y = snoise(vec4(pos.x, pos.y, pos.z, 1.352+timer/10000.0)) * 0.01;
   inc.z = snoise(vec4(pos.x, pos.y, pos.z, 12.352+timer/10000.0)) * 0.01;
 
-  pos = 1.5 * pos + 50.0 * inc;
+  pos = pos + 50.0 * inc;
+  pos.y += .5;
 
   newPosition = vec4(pos, 1.0);
   newVelocity = vec4(50.0 * inc, 1.0);
