@@ -15,6 +15,11 @@
     <script src="./misc/player.js"></script>
     <script src="./misc/objparser.js"></script>
     <script src="./perlin/dynamicPerlin.js"></script>
+
+    <div>
+    WebGL deferred rendering demo with ~2500 lights animated w/4D Perlin noise.  GPU state management handled w/PicoGL.js library.
+    Each light is rendered as an OpenGL point primitive instead of a spherical light volume.  This optimization doesn't make any noticeable difference on modern graphics cards but on my MacBookPro it's about 20% faster.
+    </div>
 </html>
 
 
