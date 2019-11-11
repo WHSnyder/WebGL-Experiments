@@ -40,6 +40,10 @@
 				<div class="project" style="margin-left: 10%; margin-top: 6%;" onclick="window.location.href='./testPerlin.html'">
 					<img src="./images/cat.png" class="project_image"/>
 				</div>
+
+				<div class="project" style="margin-left: -.25%; margin-top: 6%;" onclick="window.location.href='https://github.com/WHSnyder/LegoTrainingRenderer'">
+					<img src="./images/trainer.png" class="project_image"/>
+				</div>
 			</div>	
 
 
@@ -49,9 +53,9 @@
 				The HoloLens spatial mapping system creates a pretty accurate mesh overlay of the room.  That much is clear, but it seems too accurate to me.  I dont need a mesh of triangles to represent a rectangular table with nothing on it, I only need 12, practically only 2.  The HoloLens 2 seems to have built in DL capabilities for semantic object recognition, but would a "shape classifier" be better?  I'm interested in CNN-based approaches to filtering spatial maps           
 			</div>
 
-			<div id="resume" style="height: 90%; width: 95%; position: absolute; float: left; z-index: 1; box-shadow: 0 8px 8px 0 rgba(0, 0, 0, 0.2), 0 4px 3px 0 rgba(0, 0, 0, 0.19); opacity: 0.0;">
+			<div id="resume" style="height: 80%; width: 95%; position: absolute; float: left; z-index: 1; box-shadow: 0 8px 8px 0 rgba(0, 0, 0, 0.2), 0 4px 3px 0 rgba(0, 0, 0, 0.19); opacity: 0.0;">
 				<object style="width:100%;height:100%;" data="./thegoods/resume_ws.pdf" type="application/pdf">
-	  				<p>Alternative text - include a link <a href="myfile.pdf">to the PDF!</a></p>
+	  				<p>PDF display failed, <a href="myfile.pdf">here's a direct link.</a></p>
 				</object>
 			</div>
 		</div>
@@ -107,7 +111,7 @@
 			project.style.opacity = 0.0;
 			project.style.zIndex = -1;
 			
-			delay += 0.08
+			delay += 0.06
 		}
 
 		//projects_div.style.opacity = 0.0;
@@ -129,7 +133,7 @@
 			project.style.opacity = 1.0;
 			project.style.zIndex = 10;
 
-			delay += 0.08
+			delay += 0.06
 		}
 
 		current = "projects";
