@@ -7,19 +7,19 @@
 		You must enable WebGL and hardware acceleration!!
 	</canvas>
 
-    <script src="./glMatrix/dist/gl-matrix.js" ></script>
-    <script src="./glInit.js"></script>
-    <script src="./compat.js"></script>
-    <script src="./utils.js"></script>
-    <script src="./picogl/picogl.min.js"></script>
-    <script src="./misc/cutPlayer.js"></script>
-    <script src="./cuttable_cloth/cloth_redo.js"></script>
-    <script src="./cuttable_cloth/control_redo.js"></script>
+    <script src="./libs/glMatrix/dist/gl-matrix.js" ></script>
+    <script src="./misc/glInit.js"></script>
+    <script src="./misc/compat.js"></script>
+    <script src="./misc/utils.js"></script>
+    <script src="./libs/picogl/picogl.min.js"></script>
+    <script src="./cuttable_cloth/cutPlayer.js"></script>
+    <script src="./cuttable_cloth/simu.js"></script>
+    <script src="./cuttable_cloth/cutControls.js"></script>
 
     <div id="notes" onload="updateWorld();">
     </div>
     <div>Cuttable cloth simulation w/WebGL.  GPU state management w/PicoGL.js library. Click and drag over the cloth to cut it!
-    The <a href="https://github.com/tsherif/picogl.js/blob/master/examples/cloth.html">original cloth simulation</a> didn't have direct interactibility and I plan on adding burning functionality soon.  
+    The <a href="https://github.com/tsherif/picogl.js/blob/master/examples/cloth.html">original cloth simulation</a> didn't have direct interactibility and I plan on adding burning functionality soon. <a href="https://github.com/WHSnyder/whsnyder.github.io/tree/master/cuttable_cloth">Github repo</a>
     </div>
 </html>
 
