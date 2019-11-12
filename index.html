@@ -24,26 +24,45 @@
 
 
 			<div id="projects" style="position: absolute; float: left; z-index: 4; opacity: 1.0;">
-				<div class="project" onclick="window.location.href='https://www.youtube.com/watch?v=x7sWHIO9aA8&t=5s'">
-					<img src="./images/hunted.png" class="project_image"/>
-					
+
+				<div class="proj_subdiv">
+					<div class="proj_label">Games/VR</div>
+					<br>
+					<div class="project" onclick="window.location.href='https://www.youtube.com/watch?v=x7sWHIO9aA8&t=5s'">
+						<img src="./images/hunted.png" class="project_image"/>
+					</div>
+
+					<div class="project" onclick="window.location.href='https://www.youtube.com/watch?v=_yMe1_JKNWU'">
+						<img src="./images/agt.png" class="project_image"/>
+					</div>
 				</div>
 
-				<div class="project" onclick="window.location.href='./cut.html'">
-					<img src="./images/cloth.png" class="project_image"/>
+
+				<div class='proj_subdiv'>
+					<div class="proj_label">OpenGL/Rendering</div>
+					<br>
+					<div class="project" onclick="window.location.href='./cut.html'">
+						<img src="./images/cloth.png" class="project_image"/>
+					</div>
+
+					<div class="project" onclick="window.location.href='./deferredPerlin.html'">
+						<img src="./images/cat.png" class="project_image"/>
+					</div>
+
+					<div class="project" onclick="window.location.href='https://github.com/WHSnyder/LegoTrainingRenderer'">
+						<img src="./images/trainer.png" class="project_image"/>
+					</div>
 				</div>
 
-				<div class="project" style="margin-left: -.25%; margin-top: 6%;" onclick="window.location.href='https://www.youtube.com/watch?v=_yMe1_JKNWU'">
-					<img src="./images/agt.png" class="project_image"/>
-				</div>
 
-				<div class="project" style="margin-left: 10%; margin-top: 6%;" onclick="window.location.href='./deferredPerlin.html'">
-					<img src="./images/cat.png" class="project_image"/>
-				</div>
+				<div class="proj_subdiv">
+					<div class="proj_label">Machine Learning/Computer Vision</div>
 
-				<div class="project" style="margin-left: -.25%; margin-top: 6%;" onclick="window.location.href='https://github.com/WHSnyder/LegoTrainingRenderer'">
-					<img src="./images/trainer.png" class="project_image"/>
+
 				</div>
+				
+				
+
 			</div>	
 
 
@@ -85,6 +104,20 @@
 
 	var projects_opt = document.getElementById("projects_opt");
 	var projects = document.getElementsByClassName("project")
+	var subdivs = document.getElementsByClassName("proj_subdiv")
+
+	var proj_contents = []
+
+	for (let subdiv of subdivs){
+		for (let content of subdiv.childNodes){
+			if (content instanceof HTMLElement){
+				if (content.className === "project"|| content.className === "proj_label"){
+					proj_contents.push(content)
+				}
+			}
+		}
+	}
+
 	var projects_div = document.getElementById("projects");
 
 	var current = "about";
@@ -99,51 +132,47 @@
 		el.style.zIndex = -1;
 	}
 
+
 	function fadeProjects(projs){
 
 		let delay = 0.0;
 
 		projects_div.style.zIndex = -1;
 
-		for (let project of projects){
+		for (let project of proj_contents){
 			project.style.transitionDelay = delay.toString() + "s";
 
 			project.style.opacity = 0.0;
 			project.style.zIndex = -1;
 			
-			delay += 0.06
+			delay += 0.05
 		}
-
-		//projects_div.style.opacity = 0.0;
 	}
-
 	
 
 	function loadProjects(){
 
 		fadeFunctions[current](currEl);
-		//fadeResume()
 
 		let delay = 0.0;
 		projects_div.style.opacity = 1.0;
 		projects_div.style.zIndex = 10;
 
-		for (let project of projects){
+		for (let project of proj_contents){
 			project.style.transitionDelay = delay.toString() + "s";
 			project.style.opacity = 1.0;
 			project.style.zIndex = 10;
 
-			delay += 0.06
+			delay += 0.07
 		}
-
 		current = "projects";
 		currEl = projects
 	}
 
+
 	function loadResume(){
 
 		fadeFunctions[current](currEl);
-		//fadeProjects()
 
 		resume.style.transition = "1.0s ease-in-out";
 		resume.style.opacity = 1.0;	
@@ -151,8 +180,8 @@
 
 		current = "resume";
 		currEl = resume;
-
 	}
+
 
 	function loadAbout(){
 

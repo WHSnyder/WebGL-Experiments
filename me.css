@@ -42,6 +42,24 @@ body {
 	float: left;
 }
 
+/*#projects {
+    webkit-transition: 0.2s ease-in-out;
+    -moz-transition: 0.2s ease-in-out;
+    -o-transition: 0.2s ease-in-out;
+    transition: 0.2s ease-in-out;
+}*/
+
+.proj_label{
+	-webkit-transition: 0.5s ease-in-out;
+    -moz-transition: 0.5s ease-in-out;
+    -o-transition: 0.5s ease-in-out;
+    transition: 0.5s ease-in-out;
+
+    transition-delay: 0.8s;
+    opacity: 0.0; 
+
+}
+
 .project {
 
 	-webkit-transition: 0.5s ease-in-out;
@@ -55,7 +73,7 @@ body {
 
 	float: left;
 
-	width: 40%;
+	width: 30%;
 	height: 30%;
 	overflow: auto;
 
@@ -76,8 +94,10 @@ body {
 
   	display: block;
 
-    max-width: 90%;
+    max-width: 100%;
     max-height: 80%;
+    border-radius: 2%;
+
 
   	margin-left: auto;
   	margin-right: auto;
@@ -94,7 +114,17 @@ body {
 }
 
 .project + .project {
-	margin-left: 10%;
+	margin-left: 5%;
+}
+
+.proj_subdiv {
+	position: relative;
+	float: left;
+	opacity: 1.0;
+}
+
+.proj_subdiv + .proj_subdiv {
+	margin-top: 7%;
 }
 
 #opts {
