@@ -10,20 +10,21 @@
 		<div id="goods">
 
 			<div id="about">
-				<div id="name">
-					<div id="bossysister">
-						Will Snyder
-					</div>
-					<i class="fab fa-github"></i>
-					<img src="./images/git.png" style="border-radius: 50%; background-color: transparent; box-shadow: 2px 3px 5px 0 rgba(0, 0, 0, 0.2), 0 12px 30px 0 rgba(0, 0, 0, 0.19);"/>
+				<div id="bossysister">
+					Will Snyder
+					<!-- <i class="fab fa-github"></i>
+					<img src="./images/git.png" style="border-radius: 50%; background-color: transparent; box-shadow: 2px 3px 5px 0 rgba(0, 0, 0, 0.2), 0 12px 30px 0 rgba(0, 0, 0, 0.19);"/> -->
 				</div>
 
-				<br><br><br><br><br>				
+				<br><br><br><br>
+				<div>				
 				    I recently graduated from UMD: College Park with a BS in CS.  Please have a look at some of the projects I've been working on lately!  I love learning new things from the ground up and have solid foundations in low-level 3D graphics, game/VR development w/Unity, and deep learning. 
 
-				    <br><br><br>
+				    <br><br><br><br>
+				</div>
 
-				    <a href="./docs/resume_ws.pdf">Resume</a> 
+				<a href="./docs/resume_ws.pdf">Resume</a> <a href="https://github.com/WHSnyder">Github</a>
+
 			</div>
 
 
@@ -71,9 +72,24 @@
 
 
 			<div id="questions" style="position: absolute; float: left; z-index: 2; transition-delay: 0.0s; opacity: 0.0;">
-				 Having only recently dove into GPU programming, it's really got me thinking about paralellism and SIMD architectures.  If the delay/forced flush involved with reading back from a GPU wasn't a performance death wish,          
-				<br><br>
-				The HoloLens spatial mapping system creates a pretty accurate mesh overlay of the room.  That much is clear, but it seems too accurate to me.  I dont need a mesh of triangles to represent a rectangular table with nothing on it, I only need 12, practically only 2.  The HoloLens 2 seems to have built in DL capabilities for semantic object recognition, but would a "shape classifier" be better?  I'm interested in CNN-based approaches to filtering spatial maps           
+				<div class="ques">
+					Having only recently dove into GPU programming, it's really got me thinking about paralellism and SIMD architectures.  If the delay/forced flush involved with reading back from a GPU didn't kill performance, a lot more parallelism could be harnessed for game state calculations.  Are there serious efforts to add low latency asynchronous read-back capabilities to mainstream GPUs?           
+					<br><br><br>
+				</div>
+				<div class="ques">
+					The HoloLens spatial mapping system creates a pretty accurate mesh overlay of the room.  That much is clear, but it seems too accurate to me.  I dont need a mess of triangles to represent a rectangular table with nothing on it, I only need 12, practically only 2.  The HoloLens 2 seems to have built in DL capabilities for semantic object recognition, but would a "shape classifier" be better?  I'm interested in graph-based CNN-based approaches to filtering spatial maps into basic primitive shapes.
+					<br><br><br>
+				</div>
+
+				<div class="ques">
+					An interesting project would involve training an end-to-end graphics pipeline with semantic rendering stage followed by a DLSS post-process.  The <a href="https://github.com/tensorflow/graphics">tensorflow graphics</a> library could be used to render a layer of semantic information to assist the DLSS post-process.  One could train the network to estimate raytraced images from simple GLSL shader passes.  
+					<br><br><br>
+				</div>
+
+				<div class="ques">
+					Porting this <a href="https://github.com/maajor/NeuralNetworkPostProcessing">style transfer</a> post-process to UE4.
+					<br><br><br>
+				</div>
 			</div>
 
 	
