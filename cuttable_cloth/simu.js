@@ -2,13 +2,7 @@
 FULL CREDITS TO TAREK SHARIF @https://github.com/tsherif/picogl.js/
 FOR THIS WONDERFUL LIBRARY AND CLOTH SIMULATION.
 
-All code here except the cutting additions was written by him and I only added
-minor changes to the .
-
-
-
-
-
+All code here except the cutting additions was written by him.
 */
 
 
@@ -24,7 +18,6 @@ void main() {
     vScreenUV = aPosition.xy * 0.5 + 0.5;
     gl_Position = aPosition;
 }`;
-
 
 
 var update_force_fs = 
@@ -45,8 +38,6 @@ uniform sampler2D uOldPositionBuffer;
 layout(location=0) out vec3 outPosition;
 layout(location=1) out vec3 outOldPosition;
 
-
-
 void main() {
 
     ivec2 dimensions = textureSize(uPositionBuffer, 0);
@@ -59,7 +50,6 @@ void main() {
     vec3 oldPosition = texelFetch(uOldPositionBuffer, texelCoord, 0).xyz;
 
     vec3 temp = position;
-
     
     if (texelCoord != ivec2(0, 0) && 
         texelCoord != ivec2(maxTexelCoord.x, 0) &&
@@ -143,7 +133,7 @@ void main() {
             float dist = length(diffVec);
             
             if (dist > uRestDistance) {
-                position += diffVec * (1.0 - uRestDistance / (dist)) * (otherPin ? 1.0 : 0.5);
+                position += diffVec * (1.0 - uRestDistance / dist) * (otherPin ? 1.0 : 0.5);
             }
         }
     }
