@@ -107,6 +107,12 @@
 
 
 	<script type="text/javascript">
+
+	const adapter =  navigator.gpu.requestAdapter();
+	//const device =  adapter.requestDevice();
+
+	console.log(adapter);
+
 		
 	var about_opt = document.getElementById("about_opt");
 	var about = document.getElementById("about");

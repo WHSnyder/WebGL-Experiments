@@ -241,7 +241,6 @@ void main() {
     }
 }`;
 
-   
 
 
 var cloth_vs = 
@@ -263,7 +262,7 @@ layout(std140, column_major) uniform SceneUniforms {
 out vec3 vPosition;
 out vec2 vUV;
 out vec3 vNormal;
-out float cut;
+out vec3 cut;
 
 
 void main() {
@@ -273,10 +272,10 @@ void main() {
     
     ivec2 dimensions = textureSize(uPositionBuffer, 0);
 
-    cut = 1.0;
+    cut = vec3(0.0);
 
     if (cutStatus.x == 1.0){
-        cut = 0.0;
+        cut.x = 1.0;
     }
 
     vPosition = position;
@@ -304,25 +303,28 @@ uniform sampler2D uDiffuse;
 in vec3 vPosition;
 in vec2 vUV;
 in vec3 vNormal;
-in float cut;
+in vec3 cut;
 
 out vec4 fragColor;
 
 void main() {
 
-    if (cut < 1.0) {
-        discard;
+    if (cut.x == 1.0) {
+        discard;//fragColor = vec4(cut,1.0);
+    }
+    if (cut.x > 0.0 && cut.x < 1.0){
+    	fragColor = vec4(cut,1.0);
     }
     else {
-        vec3 color = texture(uDiffuse, vUV).rgb;
-        vec3 normal = normalize(vNormal);
-        vec3 lightVec = -normalize(vPosition - lightPosition.xyz);
-    
-        float diffuse = abs(dot(lightVec, normal));
-        float ambient = 0.1;
-    
-        fragColor = vec4(color * (diffuse + ambient), 1.0);
-    }
+	    vec3 color = texture(uDiffuse, vUV).rgb;
+	    vec3 normal = normalize(vNormal);
+	    vec3 lightVec = -normalize(vPosition - lightPosition.xyz);
+
+	    float diffuse = abs(dot(lightVec, normal));
+	    float ambient = 0.1;
+
+	    fragColor = vec4(color * (diffuse + ambient), 1.0);
+	}
 }`;
 
 var mouseData = [null,null];
@@ -532,12 +534,10 @@ let uv = app.createVertexBuffer(PicoGL.FLOAT, 2, uvData);
 let indices = app.createIndexBuffer(PicoGL.UNSIGNED_SHORT, 3, indexData);
 
 
-
 let clothArray = app.createVertexArray()
 .vertexAttributeBuffer(0, dataIndex)
 .vertexAttributeBuffer(1, uv)
 .indexBuffer(indices);
-
 
 
 
@@ -624,92 +624,6 @@ let updateShear4Uniforms = app.createUniformBuffer([
 .set(1, 1)
 .set(2, SHEAR_REST)
 .update();
-
-
-
-
-
-/*Z-fighting extensions
-let updateHorizontal1Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([1, 0]))
-.set(1, 0)
-.set(2, STRUCTURAL_REST)
-.update();
-
-let updateHorizontal2Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([1, 0]))
-.set(1, 1)
-.set(2, STRUCTURAL_REST)
-.update();
-
-let updateVertical1Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([0, 1]))
-.set(1, 0)
-.set(2, STRUCTURAL_REST)
-.update();
-
-let updateVertical2Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([0, 1]))
-.set(1, 1)
-.set(2, STRUCTURAL_REST)
-.update();
-
-let updateShear1Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([1, 1]))
-.set(1, 0)
-.set(2, SHEAR_REST)
-.update();
-
-let updateShear2Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([1, 1]))
-.set(1, 1)
-.set(2, SHEAR_REST)
-.update();
-
-let updateShear3Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([1, -1]))
-.set(1, 0)
-.set(2, SHEAR_REST)
-.update();
-
-let updateShear4Uniforms = app.createUniformBuffer([
-    PicoGL.INT_VEC2,
-    PicoGL.INT,
-    PicoGL.FLOAT
-])
-.set(0, new Int32Array([1, -1]))
-.set(1, 1)
-.set(2, SHEAR_REST)
-.update();
-*/
 
 
 
@@ -945,16 +859,11 @@ Promise.all([
     }
 
 
-
     /*
-
-    NO IDEA WHY I HAVE TO WRITE THIS CODE AGAIN (IN CONTROL_REDO.JS)
-    IF I DONT REPEAT IT THERE, THEN IT ONLY WORKS WHEN THE CONSOLE IS OPEN...
-
+    No idea why I have to write this code again (in cutcontrols.js)
+    if I dont repeat it there, then it only works when the console is open.
+    Not worth the time fixing it, the simu still needs more work!
     */
-
-
-
 
     var current_time = 0;
 

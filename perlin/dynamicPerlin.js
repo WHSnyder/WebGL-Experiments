@@ -9,18 +9,15 @@ function readOBJFile(fileName, scale, reverse) {
 }
 
 var objects = {};
-
 objects["cat"] = readOBJFile("./models/gitcat.obj", 2, 0);
-//objects["volume"] = readOBJFile("./models/lightVolume.obj", 1, 0);
-
 
 var catdata = objects["cat"].getDrawingInfo()
-//var volumeData = objects["volume"].getDrawingInfo
 
 
 /*
 
-BEGIN MARK'S CODE
+BEGIN MARK'S CODE 
+
 
 */
 
@@ -173,20 +170,13 @@ void main() {
 
   newPosition = vec4(pos, 1.0);
   newVelocity = vec4(50.0 * inc, 1.0);
-}`
+}`;
 
 /*
 
 END MARK'S CODE
 
 */
-
-
-
-
-
-
-
 
 
 var pointLightVert =
@@ -225,7 +215,7 @@ void main(){
 
   	gl_Position = clipPos;
   	gl_PointSize = fraction * (radius/2.0) * 1000.0;
-} `;
+}`;
 
 
 var pointLightFrag = 
@@ -259,6 +249,9 @@ void main(){
   fragColor = vec4(atten * atten * strength * color * fColor);    
 } `;
 
+/*
+
+*/
 
 
 var pointVert = 
@@ -277,16 +270,13 @@ layout(location=0) in vec2 dataIndex;
 
 out vec4 color;
 
-
 void main(){
 
   color = vec4(abs(normalize(texture(velTex, dataIndex/numParticles).xyz)),1.0);
 
-  //color = abs(normalize(vec4(,.75)));
   gl_Position = mvp * texture(dataTex, dataIndex/numParticles);
   gl_PointSize = 2.0;
 }`;
-
 
 
 var pointFrag = 
@@ -299,13 +289,11 @@ out vec4 fragColor;
 
 void main() {
     fragColor = color;
-    //fragColor = vec4(1.0,0.5,0.5,1.0);
-}
-`;
+}`;
 
 
 
-//Dummy shader for accessing data texture 
+//Dummy shader for accessing data texture w/fullscreen quad. 
 
 var quad_vs = 
 `#version 300 es
@@ -376,7 +364,7 @@ void main(){
 
 
 
-//Base lighting pass... not necessary anymore but not removing anyways
+//Base lighting pass, may be used in future versions with more lighting.
 
 var globalPassFrag = 
 `#version 300 es
@@ -445,18 +433,13 @@ out vec4 color;
 
 
 void main(){
-
     color = fragColor; 
 }`;
 
 
 
 
-
-
-
-
-
+//Basic mouse movement parameters.
 var deltamX = 0;
 var deltamY = 0;
 
@@ -472,7 +455,10 @@ if (!testExtension("EXT_color_buffer_float")) {
 
 let canvas = document.getElementById("view");
 
-
+/* 
+*  Some of these settings may be unnecessary, but I experienced unpredictable behaviour with the stencil buffer
+*  until I overkilled the settings.  Maybe worth a PR. 
+*/
 
 let app = PicoGL.createApp(canvas, {stencil:true})
 .clearColor(0.0, 0.0, 0.0, 1.0)
@@ -488,17 +474,15 @@ let app = PicoGL.createApp(canvas, {stencil:true})
 
 let timer = app.createTimer();
 
-
+//Dim refers to number of particles and thus size of data texture, radius is extent of point lights 
 const dim = 40;
 const radius = 0.5;
 
 var NUM_PARTICLES = dim * dim;
 
-let posData = new Float32Array(NUM_PARTICLES * 4);
-let velData = new Float32Array(NUM_PARTICLES * 4);
-let posIndicies = new Float32Array(NUM_PARTICLES * 2);
-
-let texIndex = 0;
+let posData = new Float32Array(NUM_PARTICLES * 4); //position data tex
+let velData = new Float32Array(NUM_PARTICLES * 4); //velocities data tex for controlling brightness and BVH testing
+let posIndicies = new Float32Array(NUM_PARTICLES * 2); //indices into data textures for each particle 
 
 
 for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
@@ -522,7 +506,7 @@ for (let i = 0; i < NUM_PARTICLES * 4; i+=4){
 const noiseDim = 64;
 
 
-
+//Same texture as dataTex, needed because buffers cannot be read from and written to simultaneously 
 let startTex = app.createTexture2D(posData, dim, dim, {
     minFilter: PicoGL.NEAREST,
     magFilter: PicoGL.NEAREST,
@@ -530,6 +514,7 @@ let startTex = app.createTexture2D(posData, dim, dim, {
     wrapT: PicoGL.REPEAT,
     internalFormat: PicoGL.RGBA16F
 });
+
 
 let dataTex = app.createTexture2D(posData, dim, dim, {
     minFilter: PicoGL.NEAREST,
@@ -549,8 +534,6 @@ let velTex = app.createTexture2D(velData, dim, dim, {
 });
 
 
-
-
 let gNormals = app.createTexture2D(app.width, app.height, {
     internalFormat: PicoGL.RGBA16F
 });
@@ -565,15 +548,12 @@ let gMaterial = app.createTexture2D(app.width, app.height, {
 
 let depthTarget = app.createRenderbuffer(app.width, app.height, PicoGL.DEPTH_COMPONENT16);
 
-
-
+//Multitarget buffer for scene info.  Material isn't used now, but may be later.
 let gBuffer = app.createFramebuffer(app.width, app.height)
 .colorTarget(0, gNormals)
 .colorTarget(1, gGeometry)
 .colorTarget(2, gMaterial)
 .depthTarget(depthTarget);
-
-
 
 
 console.assert(gBuffer.getStatus() === PicoGL.FRAMEBUFFER_COMPLETE, "G-buffer framebuffer is not complete!");
@@ -584,6 +564,7 @@ let points = app.createVertexArray()
 .vertexAttributeBuffer(0, indices);
 
 
+//Fullscreen quad.
 let quadPositions = app.createVertexBuffer(PicoGL.FLOAT, 2, new Float32Array([
     -1, 1,
     -1, -1,
@@ -618,7 +599,6 @@ mat4.perspective(frust, Math.PI/2, 1000/700, .1, null);
 var mvp = mat4.create()
 
 
-
 var flag = false;
 var time = performance.now();
 var frameNum = 0;
@@ -640,7 +620,6 @@ let globalLightShader = app.createShader(PicoGL.FRAGMENT_SHADER, globalPassFrag)
 
 let objGPassVertShader = app.createShader(PicoGL.VERTEX_SHADER, objGPassVert);
 let objGPassFragShader = app.createShader(PicoGL.FRAGMENT_SHADER, objGPassFrag);
-
 
 
 let timeNow = performance.now()/1000;
@@ -687,7 +666,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
     let depthPass = app.createDrawCall(depthProgram, catArray)
     .primitive(PicoGL.TRIANGLES)
 
-    
     
     function draw() {
 
@@ -776,8 +754,8 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
         .depthMask(false)
         .clear()
 
-        globalLightPass.draw();
 
+        globalLightPass.draw();
 
 
         app.blendFunc(PicoGL.ZERO, PicoGL.ONE)
@@ -812,8 +790,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
 
     var current_time = 0;
 
-
-
     var dir = 0;
     var n = 0;
 
@@ -827,7 +803,6 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
 
     var down = false,up = false;
     var lastX = 0,lastY = 0;
-
 
 
     function mouseHandler(e){
@@ -872,6 +847,7 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
             keyMap.set(71, false);
         }
         else if (event.keyCode == 87){
+          //obselete
         }
         keyMap.set(event.keyCode, true);
     }
@@ -884,17 +860,14 @@ app.createPrograms([pointLightVertShader, pointLightFragShader],
         }
     }
 
-
     window.addEventListener("keydown", keydown, false);
     window.addEventListener("keyup", keyup, false);
-
     window.addEventListener("mouseup", function(event) {
         mouseX = event.clientX;
         mouseY = event.clientY;
         picked = true; 
     });
     window.addEventListener("mousemove", mouseHandler, false);
-
 
     requestAnimationFrame(draw);
 });

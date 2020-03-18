@@ -1,6 +1,10 @@
-//Still very unsure of why this must be loaded twice...
-//Duiplicating this logic inside the rendering promise resolution 
-//fixed solved the issue where the console had to be open..
+/*
+Still very unsure of why this must be loaded twice.
+Duplicating this logic inside the rendering promise resolution 
+fixed solved the issue where the console had to be open.
+Javascript is an ugly beast.
+*/
+
 var current_time = 0;
 
 var window_offset = vec2.fromValues(rect.left, rect.bottom);
