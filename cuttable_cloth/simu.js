@@ -233,7 +233,7 @@ void main() {
 
     vec2 rej = screenVector - cutVector * dot(cutVector, screenVector)/dot(cutVector, cutVector);
 
-    if (length(rej) < .01 && length(screenVector) < length(cutVector) ){// && (dot(cutVector, screenVector)/(length(cutVector) * length(screenVector))) > .95){
+    if (length(rej) < .01 && length(screenVector) < length(cutVector) ){
         mark = vec3(1.0,0.0,0.0);
     }
     else {
@@ -742,8 +742,6 @@ Promise.all([
     .uniformBlock("SceneUniforms", sceneUniformBuffer)
     //.uniformBlock("WindowUniforms", windowUniforms)
 
-  
-
 
     /////////
     // DRAW
@@ -817,9 +815,6 @@ Promise.all([
             .draw();   
         }
 
-        
-       
-
         if (mouseData[0] != null){
 
             cutDrawCall.uniform("cutStart", mouseData[0])
@@ -835,8 +830,6 @@ Promise.all([
 
             mouseData[0] = null;
         }
-
-
 
         updateFramebuffer.colorTarget(0, normalTexture);
         app.drawFramebuffer(updateFramebuffer);

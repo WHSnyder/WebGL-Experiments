@@ -73,21 +73,21 @@
 
 			<div id="questions" style="position: absolute; float: left; z-index: 2; transition-delay: 0.0s; opacity: 0.0;">
 				<div class="ques">
-					Having only recently dove into GPU programming, it's really got me thinking about paralellism and SIMD architectures.  If the delay/forced flush involved with reading back from a GPU didn't kill performance, a lot more parallelism could be harnessed for game state calculations.  Are there serious efforts to add low latency asynchronous read-back capabilities to mainstream GPUs?           
+					Are there serious efforts to offload CPU raycasting to RT cores on capable RTX GPUs?  If your game has a focus on AI and requirs tons of visibility raycast queries, would it be worth it to send those queries to the GPU in compute shaders asynchronously?  Another example would be find detail collision in VR games.  When walking up to the walls of a cave, collision needs to be accurate for the most minute portrusions and curves.  The player's hand can directly collide with them in unpredictable ways while being observed at very close range.  Is it worth creating so many colliders for such detail?  One could use a static acceleration structure and raycast along the hand's motion vectors on GPU, assuming the VR graphics load isn't prohibitive.  In general, hardware accelerated ray queries seem valuable to way than just graphics.       
 					<br><br><br>
 				</div>
 				<div class="ques">
-					The HoloLens spatial mapping system creates a pretty accurate mesh overlay of the room.  That much is clear, but it seems too accurate to me.  I dont need a mess of triangles to represent a rectangular table with nothing on it, I only need 12, practically only 2.  The HoloLens 2 seems to have built in DL capabilities for semantic object recognition, but would a "shape classifier" be better?  I'm interested in graph-based CNN-based approaches to filtering spatial maps into basic primitive shapes.
-					<br><br><br>
-				</div>
-
-				<div class="ques">
-					An interesting project would involve training an end-to-end graphics pipeline with semantic rendering stage followed by a DLSS post-process.  The <a href="https://github.com/tensorflow/graphics">tensorflow graphics</a> library could be used to render a layer of semantic information to assist the DLSS post-process.  One could train the network to estimate raytraced images from simple GLSL shader passes.  
+					The HoloLens spatial mapping system creates a rather clumsy mesh of the room.  Clumsy not in that it's inaccurate, but in that it creates too much geometry.  I dont need a mess of triangles to represent a rectangular table with nothing on it, I only need 12, practically only 2.  The HoloLens 2 seems to have built in DL capabilities for semantic object recognition, but would a "shape classifier" operating on the spatial map be better?  I'd be interested in seeing a graph-based approach to filtering spatial maps into basic primitive shapes with assistance from CNNs producing semantic analysis of the room.
 					<br><br><br>
 				</div>
 
 				<div class="ques">
-					Porting this <a href="https://github.com/maajor/NeuralNetworkPostProcessing">style transfer</a> post-process to UE4.
+					Implementing a deep-learned graphics upscaler a la nvidia's DLSS.  The <a href="https://github.com/tensorflow/graphics">tensorflow graphics</a> library could be used to render a layer of semantic information to assist the DLSS post-process.  This library seems esoteric as of now, but the premise of "differentiable rendering" peaks my interest.    
+					<br><br><br>
+				</div>
+
+				<div class="ques">
+					Porting this <a href="https://github.com/maajor/NeuralNetworkPostProcessing">style transfer</a> post-process to a custom engine built around the concept of style transfer as a non-total process.  Individual materials or entities could be rendered to separate layers which would be fed into style transferers, instead of a complete transformation of the frame.  Such an engine would require a capable rig and an even lighter version of Google's mobile ST model.
 					<br><br><br>
 				</div>
 			</div>
